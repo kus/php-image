@@ -48,6 +48,35 @@ Place the PHP file on your server and include it in your script.
 	$image->show();
 ```
 
+## Text box auto fit text (variable font size)
+
+```ruby
+	$image = new PHPImage(400, 400);
+    $image->setFont('/path/to/fonts/Arial.ttf');
+    $image->setTextColor(array(255, 255, 255));
+    $image->text('This is a big sentence', array(
+		'fontSize' => 60,
+		'x' => 0,
+		'y' => 0,
+		'width' => 400,
+		'height' => 200,
+		'alignHorizontal' => 'center',
+		'alignVertical' => 'center',
+		'debug' => true
+	));
+	$image->text('BIG', array(
+		'fontSize' => 120,
+		'x' => 0,
+		'y' => 200,
+		'width' => 400,
+		'height' => 200,
+		'alignHorizontal' => 'center',
+		'alignVertical' => 'center',
+		'debug' => true
+	));
+    $image->show();
+```
+
 ## Copyright
 
 Copyright (c) 2013 Blake Kus [blakek.us](http://blakek.us)
