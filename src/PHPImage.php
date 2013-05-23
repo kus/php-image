@@ -16,20 +16,29 @@
  * $image->setTextColor(array(255, 255, 255));
  * $image->setStrokeWidth(1);
  * $image->setStrokeColor(array(0, 0, 0));
- * $image->text('Hello World!', 12, 50, 50);
- * $image->text('Lorem ipsum dolor sit amet, consectetur adipiscing elit.', 8, 50, 70);
+ * $image->text('Hello World!', array('fontSize' => 12, 'x' => 50, 'y' => 50));
+ * $image->text('Lorem ipsum dolor sit amet, consectetur adipiscing elit.', array('fontSize' => 8, 'x' => 50, 'y' => 70));
  * $image->show();
  *
  * It is also chainable:
  * $image = new PHPImage();
  * $image->rectangle(40, 40, 100, 60, array(0, 0, 0), 0.5)->setFont('/path/to/fonts/Arial.ttf')
- * ->setTextColor(array(255, 255, 255))->setStrokeWidth(1)->setStrokeColor(array(0, 0, 0))->text('Hello World!', 12, 50, 50)
- * ->text('Lorem ipsum dolor sit amet, consectetur adipiscing elit.', 8, 50, 70)->show();
+ * ->setTextColor(array(255, 255, 255))->setStrokeWidth(1)->setStrokeColor(array(0, 0, 0))->text('Hello World!', array('fontSize' => 12, 'x' => 50, 'y' => 50))
+ * ->text('Lorem ipsum dolor sit amet, consectetur adipiscing elit.', array('fontSize' => 8, 'x' => 50, 'y' => 70))->show();
  *
- * @version
+ * @version 0.2
  * @author Blake Kus <blakekus@gmail.com>
  * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  * @copyright 2013 Blake Kus
+ *
+ * CHANGELOG:
+ * version 0.2 2013-05-23
+ * Add support for remote images
+ * Add error handling when reading/writing files
+ * Add ability to draw text box and auto fit text and align text
+ *
+ * version 0.1 2013-04-15
+ * Initial release
  */
 
 class PHPImage {
@@ -46,6 +55,27 @@ class PHPImage {
 	* @var String
 	*/
 	private $fontFile;
+
+	/**
+	* Global font size
+	*
+	* @var integer
+	*/
+	private $fontSize = 12;
+
+	/**
+	* Global text vertical alignment
+	*
+	* @var String
+	*/
+	private $alignVertical = 'top';
+
+	/**
+	* Global text horizontal alignment
+	*
+	* @var String
+	*/
+	private $alignHorizontal = 'left';
 
 	/**
 	* Global font colour
@@ -137,9 +167,99 @@ class PHPImage {
 	* @return PHPImage
 	*/
     public function setDimensionsFromImage($file){
-		list($width, $height, $type) = getimagesize($file);
-		$this->initialiseCanvas($width, $height);
-		return $this;
+    	if($info = $this->getImageInfo($file, false)){
+			$this->initialiseCanvas($info->width, $info->height);
+			return $this;
+		} else {
+			$this->handleError($file . ' is not readable!');
+		}
+	}
+
+	/**
+	 * Check if an image (remote or local) is a valid image and return type, width, height and image resource
+	 *
+	 * @param string $file
+	 * @param boolean $returnResource
+	 * @return stdClass
+	 */
+	private function getImageInfo($file, $returnResource=true){
+		if (preg_match('#^https?://#i', $file)) {
+			$headers = get_headers($file, 1);
+			if (is_array($headers['Content-Type'])) {
+				// Some servers return an array of content types, Facebook does this
+				$contenttype = $headers['Content-Type'][0];
+			} else {
+				$contenttype = $headers['Content-Type'];
+			}
+			if (preg_match('#^image/(jpe?g|png|gif)$#i', $contenttype)) {
+				switch(true){
+					case stripos($contenttype, 'jpeg') !== false:
+					case stripos($contenttype, 'jpg') !== false:
+						$img = imagecreatefromjpeg($file);
+						$type = IMAGETYPE_JPEG;
+					break;
+					case stripos($contenttype, 'png') !== false:
+						$img = imagecreatefrompng($file);
+						$type = IMAGETYPE_PNG;
+					break;
+					case stripos($contenttype, 'gif') !== false:
+						$img = imagecreatefromgif($file);
+						$type = IMAGETYPE_GIF;
+					break;
+					default:
+						return false;
+					break;
+				}
+				$width = imagesx($img);
+				$height = imagesy($img);
+				if (!$returnResource) {
+					imagedestroy($img);
+				}
+			} else {
+				return false;
+			}
+		} elseif (is_readable($file)) {
+			list($width, $height, $type) = getimagesize($file);
+			switch($type){
+				case IMAGETYPE_GIF:
+					if ($returnResource) {
+						$img = imagecreatefromgif($file);
+					}
+				break;
+				case IMAGETYPE_JPEG:
+					if ($returnResource) {
+						$img = imagecreatefromjpeg($file);
+					}
+				break;
+				case IMAGETYPE_PNG:
+					if ($returnResource) {
+						$img = imagecreatefrompng($file);
+					}
+				break;
+				default:
+					return false;
+				break;
+			}
+		} else {
+			return false;
+		}
+		$info = new stdClass();
+		$info->type = $type;
+		$info->width = $width;
+		$info->height = $height;
+		if ($returnResource) {
+			$info->resource = $img;
+		}
+		return $info;
+	}
+
+	/**
+	 * Handle errors
+	 *
+	 * @param String $error
+	 */
+	private function handleError($error){
+		die($error);
 	}
 
 	/**
@@ -163,7 +283,11 @@ class PHPImage {
      * @param boolean $show
      */
     public function save($path, $show=false){
-    	imagepng($this->img, $path);
+    	if (is_writable(dirname($path))) {
+    		imagepng($this->img, $path);
+		} else {
+			$this->handleError(dirname($path) . ' is not writable!');
+		}
     	if($show){
 			$this->show();
 			return;
@@ -179,29 +303,6 @@ class PHPImage {
 	public function showAndSave($path){
 		$this->save($path, true);
 	}
-
-    /**
-     * Create a new image resource from image file, supports: jpeg, png, gif
-     *
-     * @param string $file
-     * @return Image Resource
-     */
-    private function createImage($file){
-    	list($width, $height, $type) = getimagesize($file);
-		switch ($type) {
-			case IMAGETYPE_GIF:
-				return imagecreatefromgif($file);
-			break;
-			case IMAGETYPE_JPEG:
-				return imagecreatefromjpeg($file);
-			break;
-			case IMAGETYPE_PNG:
-				return imagecreatefrompng($file);
-			break;
-			default:
-				die('File not supported!');
-		}
-    }
 
     /**
     * Draw a line
@@ -358,115 +459,179 @@ class PHPImage {
 	* @return PHPImage
 	*/
     public function draw($file, $x='50%', $y='50%'){
-		$image = $this->createImage($file);
-		$width = imagesx($image);
-		$height = imagesy($image);
-		// Defaults if invalid values passed
-		if(strpos($x, '%') === false && !is_numeric($x) && !in_array($x, array('left', 'center', 'right'))){
-			$x = '50%';
-		}
-		if(strpos($y, '%') === false && !is_numeric($y) && !in_array($y, array('top', 'center', 'bottom'))){
-			$y = '50%';
-		}
-		// If word passed, convert it to percentage
-		switch($x){
-			case 'left':
-				$x = '0%';
-			break;
-			case 'center':
+    	if($info = $this->getImageInfo($file)){
+			$image = $info->resource;
+			$width = $info->width;
+			$height = $info->height;
+			// Defaults if invalid values passed
+			if(strpos($x, '%') === false && !is_numeric($x) && !in_array($x, array('left', 'center', 'right'))){
 				$x = '50%';
-			break;
-			case 'right':
-				$x = '100%';
-			break;
-		}
-		switch($y){
-			case 'top':
-				$y = '0%';
-			break;
-			case 'center':
+			}
+			if(strpos($y, '%') === false && !is_numeric($y) && !in_array($y, array('top', 'center', 'bottom'))){
 				$y = '50%';
-			break;
-			case 'bottom':
-				$y = '100%';
-			break;
+			}
+			// If word passed, convert it to percentage
+			switch($x){
+				case 'left':
+					$x = '0%';
+				break;
+				case 'center':
+					$x = '50%';
+				break;
+				case 'right':
+					$x = '100%';
+				break;
+			}
+			switch($y){
+				case 'top':
+					$y = '0%';
+				break;
+				case 'center':
+					$y = '50%';
+				break;
+				case 'bottom':
+					$y = '100%';
+				break;
+			}
+			// Work out offset
+			if(strpos($x, '%') > -1){
+				$x = str_replace('%', '', $x);
+				$x = ceil(($this->width - $width) * ($x / 100));
+			}
+			if(strpos($y, '%') > -1){
+				$y = str_replace('%', '', $y);
+				$y = ceil(($this->height - $height) * ($y / 100));
+			}
+			// Draw image
+			imagecopyresampled(
+				$this->img,
+				$image,
+				$x,
+				$y,
+				0,
+				0,
+				$width,
+				$height,
+				$width,
+				$height
+			);
+			imagedestroy($image);
+			return $this;
+		} else {
+			$this->handleError($file . ' is not a valid image!');
 		}
-		// Work out offset
-		if(strpos($x, '%') > -1){
-			$x = str_replace('%', '', $x);
-			$x = ceil(($this->width - $width) * ($x / 100));
-		}
-		if(strpos($y, '%') > -1){
-			$y = str_replace('%', '', $y);
-			$y = ceil(($this->height - $height) * ($y / 100));
-		}
-		// Draw image
-		imagecopyresampled(
-			$this->img,
-			$image,
-			$x,
-			$y,
-			0,
-			0,
-			$width,
-			$height,
-			$width,
-			$height
-		);
-		imagedestroy($image);
-		return $this;
 	}
 
 	/**
-	* Draw text
-	*
-	* @param String $text
-	* @param integer $fontSize
-	* @param integer $x
-	* @param integer $y
-	* @param integer $angle
-	* @param integer $strokeWidth
-	* @param float $opacity
-	* @param array $fontColor
-	* @param array $strokeColor
-	* @param String $fontFile
-	* @see http://www.php.net/manual/en/function.imagettftext.php
-	* @return PHPImage
-	*/
-    public function text($text, $fontSize=12, $x=0, $y=0, $angle=null, $strokeWidth=null, $opacity=null, $fontColor=null, $strokeColor=null, $fontFile=null){
-    	if($fontFile === null){
-			$fontFile = $this->fontFile;
-		}
-		if($fontColor === null){
-			$fontColor = $this->textColor;
-		}
-		if($angle === null){
-			$angle = $this->textAngle;
-		}
-		if($strokeWidth === null){
-			$strokeWidth = $this->strokeWidth;
-		}
-		if($opacity === null){
-			$opacity = $this->textOpacity;
-		}
-		if($strokeColor === null){
-			$strokeColor = $this->strokeColor;
+	 * Draw text
+	 *
+	 * ### Options
+	 *
+	 * - integer $fontSize
+	 * - integer $x
+	 * - integer $y
+	 * - integer $angle
+	 * - integer $strokeWidth
+	 * - float $opacity
+	 * - array $fontColor
+	 * - array $strokeColor
+	 * - String $fontFile
+	 *
+	 * @param String $text
+	 * @param array $options
+	 * @see http://www.php.net/manual/en/function.imagettftext.php
+	 * @return PHPImage
+	 */
+	public function text($text, $options=array()){
+		$defaults = array(
+			'fontSize' => $this->fontSize,
+			'fontColor' => $this->textColor,
+			'opacity' => $this->textOpacity,
+			'x' => 0,
+			'y' => 0,
+			'width' => null,
+			'height' => null,
+			'alignHorizontal' => $this->alignHorizontal,
+			'alignVertical' => $this->alignVertical,
+			'angle' => $this->textAngle,
+			'strokeWidth' => $this->strokeWidth,
+			'strokeColor' => $this->strokeColor,
+			'fontFile' => $this->fontFile,
+			'autoFit' => true,
+			'debug' => false
+		);
+		extract(array_merge($defaults, $options), EXTR_OVERWRITE);
+		if(is_int($width) && $autoFit){
+			$fontSize = $this->fitToWidth($fontSize, $angle, $fontFile, $text, $width);
 		}
 		// Get Y offset as it 0 Y is the lower-left corner of the character
-		$testbox = imagettfbbox($fontSize, $angle, $fontFile, 'W');
-		$offset = abs($testbox[7]);
+		$testbox = imagettfbbox($fontSize, $angle, $fontFile, $text);
+		$offsety = abs($testbox[7]);
+		$offsetx = 0;
+		$actualWidth = abs($testbox[6] - $testbox[4]);
+		$actualHeight = abs($testbox[1] - $testbox[7]);
+		// If text box align text
+		if(is_int($width) || is_int($height)){
+			if(!is_int($width)){
+				$width = $actualWidth;
+			}
+			if(!is_int($height)){
+				$height = $actualHeight;
+			}
+			if($debug){
+				$this->rectangle($x, $y, $width, $height, array(0, 255, 255), 0.5);
+			}
+			switch($alignHorizontal){
+				case 'center':
+					$offsetx += (($width - $actualWidth) / 2);
+				break;
+				case 'right':
+					$offsetx += ($width - $actualWidth);
+				break;
+			}
+			switch($alignVertical){
+				case 'center':
+					$offsety += (($height - $actualHeight) / 2);
+				break;
+				case 'bottom':
+					$offsety += ($height - $actualHeight);
+				break;
+			}
+		}
 		// Draw stroke
 		if($strokeWidth > 0){
 			$strokeColor = imagecolorallocatealpha($this->img, $strokeColor[0], $strokeColor[1], $strokeColor[2], (1 - $opacity) * 127);
 			for($sx = ($x-abs($strokeWidth)); $sx <= ($x+abs($strokeWidth)); $sx++){
 				for($sy = ($y-abs($strokeWidth)); $sy <= ($y+abs($strokeWidth)); $sy++){
-					imagettftext($this->img, $fontSize, $angle, $sx, $sy + $offset, $strokeColor, $fontFile, $text);
+					imagettftext($this->img, $fontSize, $angle, $sx + $offsetx, $sy + $offsety, $strokeColor, $fontFile, $text);
 				}
 			}
 		}
 		// Draw text
-		imagettftext($this->img, $fontSize, $angle, $x, $y + $offset, imagecolorallocatealpha($this->img, $fontColor[0], $fontColor[1], $fontColor[2], (1 - $opacity) * 127), $fontFile, $text);
+		imagettftext($this->img, $fontSize, $angle, $x + $offsetx, $y + $offsety, imagecolorallocatealpha($this->img, $fontColor[0], $fontColor[1], $fontColor[2], (1 - $opacity) * 127), $fontFile, $text);
 		return $this;
+	}
+
+	/**
+	* Reduce font size to fit to width
+	*
+	* @param integer $fontSize
+	* @param integer $angle
+	* @param String $fontFile
+	* @param String $text
+	* @param integer $width
+	*/
+	private function fitToWidth($fontSize, $angle, $fontFile, $text, $width){
+		while($fontSize > 0){
+			$testbox = imagettfbbox($fontSize, $angle, $fontFile, $text);
+			$actualWidth = abs($testbox[6] - $testbox[4]);
+			if($actualWidth <= $width){
+				return $fontSize;
+			}else{
+				$fontSize--;
+			}
+		}
+		return $fontSize;
 	}
 
 	/**
@@ -516,6 +681,39 @@ class PHPImage {
 		}
 		return $ret;
 	}
+
+	/**
+	* Set's global text size
+	*
+	* @param integer $size
+	* @return PHPImage
+	*/
+    public function setFontSize($size=12){
+    	$this->fontSize = $size;
+    	return $this;
+    }
+
+    /**
+	* Set's global text vertical alignment
+	*
+	* @param String $align
+	* @return PHPImage
+	*/
+    public function setAlignVertical($align='top'){
+    	$this->alignVertical = $align;
+    	return $this;
+    }
+
+    /**
+	* Set's global text horizontal alignment
+	*
+	* @param String $align
+	* @return PHPImage
+	*/
+    public function setAlignHorizontal($align='left'){
+    	$this->alignHorizontal = $align;
+    	return $this;
+    }
 
 	/**
 	* Set's global text colour using RGB
