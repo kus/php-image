@@ -127,6 +127,13 @@ class PHPImage {
 	private $height;
 
 	/**
+	* Default folder mode to be used if folder structure needs to be created
+	*
+	* @var String
+	*/
+	private $folderMode = 0755;
+
+	/**
 	* Initialise the image with dimensions, or pass no dimensions and
 	* use setDimensionsFromImage to set dimensions from another image.
 	*
@@ -283,6 +290,11 @@ class PHPImage {
      * @param boolean $show
      */
     public function save($path, $show=false){
+    	if (!is_writable(dirname($path))) {
+    		if (!mkdir(dirname($path), $this->folderMode, true)) {
+			    $this->handleError(dirname($path) . ' is not writable and failed to create directory structure!');
+			}
+		}
     	if (is_writable(dirname($path))) {
     		imagepng($this->img, $path);
 		} else {
@@ -680,6 +692,17 @@ class PHPImage {
 			}
 		}
 		return $ret;
+	}
+
+	/**
+	* Set's global folder mode if folder structure needs to be created
+	*
+	* @param String $mode
+	* @return PHPImage
+	*/
+	public function setFolderMode($mode=0755){
+		$this->folderMode = $mode;
+    	return $this;
 	}
 
 	/**
