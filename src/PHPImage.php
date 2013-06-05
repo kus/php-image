@@ -50,6 +50,13 @@ class PHPImage {
 	private $img;
 
 	/**
+	* PNG Compression level: from 0 (no compression) to 9.
+	*
+	* @var integer
+	*/
+	private $quality = 3;
+
+	/**
 	* Global font file
 	*
 	* @var String
@@ -279,8 +286,9 @@ class PHPImage {
 		header('Cache-Control: post-check=0, pre-check=0', false);
 		header('Pragma: no-cache');
 		header('Content-type: image/png');
-		imagepng($this->img);
+		imagepng($this->img, null, $this->quality);
 		imagedestroy($this->img);
+		die();
     }
 
     /**
@@ -296,7 +304,7 @@ class PHPImage {
 			}
 		}
     	if (is_writable(dirname($path))) {
-    		imagepng($this->img, $path);
+    		imagepng($this->img, $path, $this->quality);
 		} else {
 			$this->handleError(dirname($path) . ' is not writable!');
 		}
@@ -801,6 +809,17 @@ class PHPImage {
 	*/
     public function setFont($fontFile){
     	$this->fontFile = $fontFile;
+    	return $this;
+    }
+	
+	/**
+	* Set's global quality for PNG output
+	*
+	* @param string $quality
+	* @return PHPImage
+	*/
+    public function setQuality($quality){
+    	$this->quality = $quality;
     	return $this;
     }
 }
