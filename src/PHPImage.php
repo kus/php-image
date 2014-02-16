@@ -1,37 +1,26 @@
 <?php
 
 /**
- * Wrapper for PHP's GD Library for easy image manipulation to draw images
- * on top of each other preserving transparency, writing text with stroke
- * and transparency and drawing shapes.
+ * Wrapper for PHP's GD Library for easy image manipulation to resize, crop
+ * and draw images on top of each other preserving transparency, writing text
+ * with stroke and transparency and drawing shapes.
  *
- * Example:
- * $overlay = '/path/to/images/overlay.png';
- * $image = new PHPImage();
- * $image->setDimensionsFromImage($overlay);
- * $image->draw('/path/to/images/image.jpg');
- * $image->draw($overlay);
- * $image->rectangle(40, 40, 100, 60, array(0, 0, 0), 0.5);
- * $image->setFont('/path/to/fonts/Arial.ttf');
- * $image->setTextColor(array(255, 255, 255));
- * $image->setStrokeWidth(1);
- * $image->setStrokeColor(array(0, 0, 0));
- * $image->text('Hello World!', array('fontSize' => 12, 'x' => 50, 'y' => 50));
- * $image->text('Lorem ipsum dolor sit amet, consectetur adipiscing elit.', array('fontSize' => 8, 'x' => 50, 'y' => 70));
- * $image->show();
- *
- * It is also chainable:
- * $image = new PHPImage();
- * $image->rectangle(40, 40, 100, 60, array(0, 0, 0), 0.5)->setFont('/path/to/fonts/Arial.ttf')
- * ->setTextColor(array(255, 255, 255))->setStrokeWidth(1)->setStrokeColor(array(0, 0, 0))->text('Hello World!', array('fontSize' => 12, 'x' => 50, 'y' => 50))
- * ->text('Lorem ipsum dolor sit amet, consectetur adipiscing elit.', array('fontSize' => 8, 'x' => 50, 'y' => 70))->show();
- *
- * @version 0.2
+ * @version 0.3
  * @author Blake Kus <blakekus@gmail.com>
  * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
- * @copyright 2013 Blake Kus
+ * @copyright 2014 Blake Kus
  *
  * CHANGELOG:
+ * version 0.3 2014-02-12
+ * ADD: Examples
+ * ADD: Initialise image on class instantiation
+ * ADD: Image resize with optional upscaling
+ * ADD: Image batch resize
+ * ADD: Image crop
+ * ADD: Option to save as gif/jpg/png
+ * ADD: Snapshot images
+ * FIX: Error in `textBox` reported by elbaku https://github.com/kus/php-image/issues/1
+ *
  * version 0.2 2013-05-23
  * Add support for remote images
  * Add error handling when reading/writing files
@@ -43,123 +32,141 @@
 
 class PHPImage {
 	/**
-	* Canvas resource
-	*
-	* @var resource
-	*/
+	 * Canvas resource
+	 *
+	 * @var resource
+	 */
 	private $img;
 
 	/**
-	* PNG Compression level: from 0 (no compression) to 9.
-	*
-	* @var integer
-	*/
-	private $quality = 3;
+	 * PNG Compression level: from 0 (no compression) to 9.
+	 * JPEG Compression level: from 0 to 100 (no compression).
+	 *
+	 * @var integer
+	 */
+	private $quality = 90;
 
 	/**
-	* Global font file
-	*
-	* @var String
-	*/
+	 * Global font file
+	 *
+	 * @var String
+	 */
 	private $fontFile;
 
 	/**
-	* Global font size
-	*
-	* @var integer
-	*/
+	 * Global font size
+	 *
+	 * @var integer
+	 */
 	private $fontSize = 12;
 
 	/**
-	* Global text vertical alignment
-	*
-	* @var String
-	*/
+	 * Global text vertical alignment
+	 *
+	 * @var String
+	 */
 	private $alignVertical = 'top';
 
 	/**
-	* Global text horizontal alignment
-	*
-	* @var String
-	*/
+	 * Global text horizontal alignment
+	 *
+	 * @var String
+	 */
 	private $alignHorizontal = 'left';
 
 	/**
-	* Global font colour
-	*
-	* @var array
-	*/
+	 * Global font colour
+	 *
+	 * @var array
+	 */
 	private $textColor = array(255, 255, 255);
 
 	/**
-	* Global text opacity
-	*
-	* @var float
-	*/
+	 * Global text opacity
+	 *
+	 * @var float
+	 */
 	private $textOpacity = 1;
 
 	/**
-	* Global text angle
-	*
-	* @var integer
-	*/
+	 * Global text angle
+	 *
+	 * @var integer
+	 */
 	private $textAngle = 0;
 
 	/**
-	* Global stroke width
-	*
-	* @var integer
-	*/
+	 * Global stroke width
+	 *
+	 * @var integer
+	 */
 	private $strokeWidth = 0;
 
 	/**
-	* Global stroke colour
-	*
-	* @var array
-	*/
+	 * Global stroke colour
+	 *
+	 * @var array
+	 */
 	private $strokeColor = array(0, 0, 0);
 
 	/**
-	* Canvas width
-	*
-	* @var integer
-	*/
+	 * Canvas width
+	 *
+	 * @var integer
+	 */
 	private $width;
 
 	/**
-	* Canvas height
-	*
-	* @var integer
-	*/
+	 * Canvas height
+	 *
+	 * @var integer
+	 */
 	private $height;
 
 	/**
-	* Default folder mode to be used if folder structure needs to be created
-	*
-	* @var String
-	*/
+	 * Image type
+	 *
+	 * @var integer
+	 */
+	private $type;
+
+	/**
+	 * Default folder mode to be used if folder structure needs to be created
+	 *
+	 * @var String
+	 */
 	private $folderMode = 0755;
 
 	/**
-	* Initialise the image with dimensions, or pass no dimensions and
-	* use setDimensionsFromImage to set dimensions from another image.
-	*
-	* @param integer $width (optional)
-	* @param integer $height (optional)
-	* @return PHPImage
-	*/
-	public function __construct($width=null, $height=null){
-		if($width !== null && $height !== null){
-			$this->initialiseCanvas($width, $height);
+	 * Initialise the image with a file path, or dimensions, or pass no dimensions and
+	 * use setDimensionsFromImage to set dimensions from another image.
+	 *
+	 * @param string|integer $mixed (optional) file or width
+	 * @param integer $height (optional)
+	 * @return $this
+	 */
+	public function __construct($mixed=null, $height=null){
+		//Check if GD extension is loaded
+		if (!extension_loaded('gd') && !extension_loaded('gd2')) {
+			$this->handleError('GD is not loaded');
+			return false;
+		}
+		if($mixed !== null && $height !== null){
+			$this->initialiseCanvas($mixed, $height);
+		}else if($mixed !== null && is_string($mixed)){
+			$image = $this->setDimensionsFromImage($mixed);
+			$image->draw($mixed);
+			return $image;
 		}
 	}
 
 	/**
-	* Intialise the canvas
-	*
-	* @param integer $width
-	* @param integer $height
-	*/
+	 * Intialise the canvas
+	 *
+	 * @param integer $width
+	 * @param integer $height
+	 * @return $this
+	 */
 	private function initialiseCanvas($width, $height){
 		$this->width = $width;
 		$this->height = $height;
@@ -172,16 +179,17 @@ class PHPImage {
 		imagefilledrectangle($this->img, 0, 0, $this->width, $this->height, imagecolorallocatealpha($this->img, 0, 0, 0, 127));
 		// Restore transparency blending
 		imagealphablending($this->img, true);
+		return $this;
 	}
 
 	/**
-	* Set image dimensions from an image source
-	*
-	* @param String $file
-	* @return PHPImage
-	*/
-    public function setDimensionsFromImage($file){
-    	if($info = $this->getImageInfo($file, false)){
+	 * Set image dimensions from an image source
+	 *
+	 * @param String $file
+	 * @return $this
+	 */
+	public function setDimensionsFromImage($file){
+		if($info = $this->getImageInfo($file, false)){
 			$this->initialiseCanvas($info->width, $info->height);
 			return $this;
 		} else {
@@ -194,7 +202,7 @@ class PHPImage {
 	 *
 	 * @param string $file
 	 * @param boolean $returnResource
-	 * @return stdClass
+	 * @return \stdClass
 	 */
 	private function getImageInfo($file, $returnResource=true){
 		if (preg_match('#^https?://#i', $file)) {
@@ -211,18 +219,18 @@ class PHPImage {
 					case stripos($contenttype, 'jpg') !== false:
 						$img = imagecreatefromjpeg($file);
 						$type = IMAGETYPE_JPEG;
-					break;
+						break;
 					case stripos($contenttype, 'png') !== false:
 						$img = imagecreatefrompng($file);
 						$type = IMAGETYPE_PNG;
-					break;
+						break;
 					case stripos($contenttype, 'gif') !== false:
 						$img = imagecreatefromgif($file);
 						$type = IMAGETYPE_GIF;
-					break;
+						break;
 					default:
 						return false;
-					break;
+						break;
 				}
 				$width = imagesx($img);
 				$height = imagesy($img);
@@ -239,26 +247,30 @@ class PHPImage {
 					if ($returnResource) {
 						$img = imagecreatefromgif($file);
 					}
-				break;
+					break;
 				case IMAGETYPE_JPEG:
 					if ($returnResource) {
 						$img = imagecreatefromjpeg($file);
 					}
-				break;
+					break;
 				case IMAGETYPE_PNG:
 					if ($returnResource) {
 						$img = imagecreatefrompng($file);
 					}
-				break;
+					break;
 				default:
 					return false;
-				break;
+					break;
 			}
 		} else {
 			return false;
 		}
-		$info = new stdClass();
+		$info = new \stdClass();
 		$info->type = $type;
+		if($this->type === null){
+			// Assuming the first image you use is the output image type you want
+			$this->type = $type;
+		}
 		$info->width = $width;
 		$info->height = $height;
 		if ($returnResource) {
@@ -277,42 +289,239 @@ class PHPImage {
 	}
 
 	/**
-     * Shows the resulting image, always PNG
-     */
-    public function show(){
+	 * Crop an image
+	 *
+	 * @param integer $x
+	 * @param integer $y
+	 * @param integer $width
+	 * @param integer $height
+	 * @return $this
+	 */
+	public function crop($x, $y, $width, $height){
+		$tmp = $this->img;
+		$this->initialiseCanvas($width, $height);
+		imagecopyresampled($this->img, $tmp, 0, 0, $x, $y, $width, $height, $width, $height);
+		imagedestroy($tmp);
+		return $this;
+	}
+
+	/**
+	 * Batch resize and save
+	 *
+	 * Usage: $image->batchResize('/path/to/img/test_%dx%d.jpg', array(array(100, 100, 'C', true),array(50, 50)));
+	 *
+	 * Will result in two images being saved (test_100x100.jpg and test_50x50.jpg) with 100x100 being cropped to the center.
+	 *
+	 * @param String $path
+	 * @param array $dimensions Array of `resize` arguments to run and save ie: array(100, 100, true, true)
+	 * @return $this
+	 */
+	public function batchResize($path, $dimensions=array()){
+		if(is_array($dimensions) && count($dimensions) > 0){
+			$width = $this->width;
+			$height = $this->height;
+			$copy = imagecreatetruecolor($width, $height);
+			imagecopy($copy, $this->img, 0, 0, 0, 0, $width, $height);
+			foreach($dimensions as $args){
+				$this->initialiseCanvas($width, $height);
+				imagecopy($this->img, $copy, 0, 0, 0, 0, $width, $height);
+				call_user_func_array(array($this, 'resize'), $args);
+				$this->save(sprintf($path, $args[0], $args[1]));
+			}
+			$this->initialiseCanvas($width, $height);
+			imagecopy($this->img, $copy, 0, 0, 0, 0, $width, $height);
+			imagedestroy($copy);
+		}
+		return $this;
+	}
+
+	/**
+	 * Resize image to desired dimensions.
+	 *
+	 * Optionally crop the image using the quadrant.
+	 *
+	 * This function attempts to get the image to as close to the provided dimensions as possible, and then crops the
+	 * remaining overflow using the quadrant to get the image to be the size specified.
+	 *
+	 * The quadrants available are Top, Bottom, Center (default if crop = true), Left, and Right:
+	 *
+	 * +---+---+---+
+	 * |   | T |   |
+	 * +---+---+---+
+	 * | L | C | R |
+	 * +---+---+---+
+	 * |   | B |   |
+	 * +---+---+---+
+	 *
+	 * @param integer $targetWidth
+	 * @param integer $targetHeight
+	 * @param boolean|String $crop T, B, C, L, R
+	 * @param boolean $upscale
+	 * @return $this
+	 */
+	public function resize($targetWidth, $targetHeight, $crop=false, $upscale=false){
+		$width = $this->width;
+		$height = $this->height;
+		$canvasWidth = $targetWidth;
+		$canvasHeight = $targetHeight;
+		$r = $width / $height;
+		$x = 0;
+		$y = 0;
+		if ($crop !== false) {
+			if($crop === true){
+				$crop = 'C';
+			}
+			if ($targetWidth/$targetHeight > $r) {
+				// crop top/bottom
+				$newheight = intval($targetWidth/$r);
+				$newwidth = $targetWidth;
+				switch($crop){
+					case 'T':
+						$y = 0;
+						break;
+					case 'B':
+						$y = intval(($newheight - $targetHeight) * ($height / $newheight));
+						break;
+					case 'C':
+					default:
+						$y = intval((($newheight - $targetHeight) / 2) * ($height / $newheight));
+						break;
+				}
+			} else {
+				// crop sides
+				$newwidth = intval($targetHeight*$r);
+				$newheight = $targetHeight;
+				switch($crop){
+					case 'L':
+						$x = 0;
+						break;
+					case 'R':
+						$x = intval(($newwidth - $targetWidth) * ($width / $newwidth));
+						break;
+					case 'C':
+					default:
+						$x = intval((($newwidth - $targetWidth) / 2) * ($width / $newwidth));
+						break;
+				}
+			}
+			if($upscale === false){
+				if($newwidth > $width){
+					$x = 0;
+					$newwidth = $width;
+					$canvasWidth = $newwidth;
+				}
+				if($newheight > $height){
+					$y = 0;
+					$newheight = $height;
+					$canvasHeight = $newheight;
+				}
+			}
+		} else {
+			if ($targetWidth/$targetHeight > $r) {
+				$newwidth = intval($targetHeight*$r);
+				$newheight = $targetHeight;
+			} else {
+				$newheight = intval($targetWidth/$r);
+				$newwidth = $targetWidth;
+			}
+			if($upscale === false){
+				if($newwidth > $width){
+					$newwidth = $width;
+				}
+				if($newheight > $height){
+					$newheight = $height;
+				}
+			}
+			$canvasWidth = $newwidth;
+			$canvasHeight = $newheight;
+		}
+		$tmp = $this->img;
+		$this->initialiseCanvas($canvasWidth, $canvasHeight);
+		imagecopyresampled($this->img, $tmp, 0, 0, $x, $y, $newwidth, $newheight, $width, $height);
+		imagedestroy($tmp);
+		return $this;
+	}
+
+	/**
+	 * Shows the resulting image
+	 */
+	public function show(){
 		header('Expires: Wed, 1 Jan 1997 00:00:00 GMT');
 		header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
 		header('Cache-Control: no-store, no-cache, must-revalidate');
 		header('Cache-Control: post-check=0, pre-check=0', false);
 		header('Pragma: no-cache');
 		header('Content-type: image/png');
-		imagepng($this->img, null, $this->quality);
-		imagedestroy($this->img);
+		switch($this->type){
+			case IMAGETYPE_GIF:
+				imagegif($this->img, null);
+				break;
+			case IMAGETYPE_PNG:
+				imagepng($this->img, null, $this->quality);
+				break;
+			default:
+				imagejpeg($this->img, null, $this->quality);
+				break;
+		}
+		$this->cleanup();
 		die();
-    }
+	}
 
-    /**
-     * Save the image
-     *
-     * @param String $path
-     * @param boolean $show
-     */
-    public function save($path, $show=false){
-    	if (!is_writable(dirname($path))) {
-    		if (!mkdir(dirname($path), $this->folderMode, true)) {
-			    $this->handleError(dirname($path) . ' is not writable and failed to create directory structure!');
+	/**
+	 * Cleanup
+	 */
+	public function cleanup(){
+		imagedestroy($this->img);
+	}
+
+	/**
+	 * Save the image
+	 *
+	 * @param String $path
+	 * @param boolean $show
+	 * @param boolean $destroy
+	 * @return $this
+	 */
+	public function save($path, $show=false, $destroy=true){
+		if (!is_writable(dirname($path))) {
+			if (!mkdir(dirname($path), $this->folderMode, true)) {
+				$this->handleError(dirname($path) . ' is not writable and failed to create directory structure!');
 			}
 		}
-    	if (is_writable(dirname($path))) {
-    		imagepng($this->img, $path, $this->quality);
+		if (is_writable(dirname($path))) {
+			switch($this->type){
+				case IMAGETYPE_GIF:
+					imagegif($this->img, $path);
+					break;
+				case IMAGETYPE_PNG:
+					imagepng($this->img, $path, $this->quality);
+					break;
+				default:
+					imagejpeg($this->img, $path, $this->quality);
+					break;
+			}
 		} else {
 			$this->handleError(dirname($path) . ' is not writable!');
 		}
-    	if($show){
+		if($show){
 			$this->show();
 			return;
 		}
-		imagedestroy($this->img);
+		if($destroy){
+			$this->cleanup();
+		}else{
+			return $this;
+		}
+	}
+
+	/**
+	 * Save the image and return object to continue operations
+	 *
+	 * @param string $path
+	 * @return $this
+	 */
+	public function snapshot($path){
+		return $this->save($path, false, false);
 	}
 
 	/**
@@ -324,21 +533,21 @@ class PHPImage {
 		$this->save($path, true);
 	}
 
-    /**
-    * Draw a line
-    *
-    * @param integer $x1
-    * @param integer $y1
-    * @param integer $x2
-    * @param integer $y2
-    * @param array $colour
-    * @param float $opacity
-    * @param boolean $dashed
-    * @return PHPImage
-    */
-    public function line($x1=0, $y1=0, $x2=100, $y2=100, $colour=array(0, 0, 0), $opacity=1, $dashed=false){
-    	if($dashed === true){
-    		imagedashedline($this->img, $x1, $y1, $x2, $y2, imagecolorallocatealpha($this->img, $colour[0], $colour[1], $colour[2], (1 - $opacity) * 127));
+	/**
+	 * Draw a line
+	 *
+	 * @param integer $x1
+	 * @param integer $y1
+	 * @param integer $x2
+	 * @param integer $y2
+	 * @param array $colour
+	 * @param float $opacity
+	 * @param boolean $dashed
+	 * @return $this
+	 */
+	public function line($x1=0, $y1=0, $x2=100, $y2=100, $colour=array(0, 0, 0), $opacity=1.0, $dashed=false){
+		if($dashed === true){
+			imagedashedline($this->img, $x1, $y1, $x2, $y2, imagecolorallocatealpha($this->img, $colour[0], $colour[1], $colour[2], (1 - $opacity) * 127));
 		}else{
 			imageline($this->img, $x1, $y1, $x2, $y2, imagecolorallocatealpha($this->img, $colour[0], $colour[1], $colour[2], (1 - $opacity) * 127));
 		}
@@ -346,21 +555,21 @@ class PHPImage {
 	}
 
 	/**
-	* Draw a rectangle
-	*
-	* @param integer $x
-	* @param integer $y
-	* @param integer $width
-	* @param integer $height
-	* @param array $colour
-	* @param float $opacity
-	* @param boolean $outline
-	* @see http://www.php.net/manual/en/function.imagefilledrectangle.php
-	* @return PHPImage
-	*/
-    public function rectangle($x=0, $y=0, $width=100, $height=50, $colour=array(0, 0, 0), $opacity=1, $outline=false){
-    	if($outline === true){
-    		imagerectangle($this->img, $x, $y, $x + $width, $y + $height, imagecolorallocatealpha($this->img, $colour[0], $colour[1], $colour[2], (1 - $opacity) * 127));
+	 * Draw a rectangle
+	 *
+	 * @param integer $x
+	 * @param integer $y
+	 * @param integer $width
+	 * @param integer $height
+	 * @param array $colour
+	 * @param float $opacity
+	 * @param boolean $outline
+	 * @see http://www.php.net/manual/en/function.imagefilledrectangle.php
+	 * @return $this
+	 */
+	public function rectangle($x=0, $y=0, $width=100, $height=50, $colour=array(0, 0, 0), $opacity=1.0, $outline=false){
+		if($outline === true){
+			imagerectangle($this->img, $x, $y, $x + $width, $y + $height, imagecolorallocatealpha($this->img, $colour[0], $colour[1], $colour[2], (1 - $opacity) * 127));
 		}else{
 			imagefilledrectangle($this->img, $x, $y, $x + $width, $y + $height, imagecolorallocatealpha($this->img, $colour[0], $colour[1], $colour[2], (1 - $opacity) * 127));
 		}
@@ -368,35 +577,35 @@ class PHPImage {
 	}
 
 	/**
-	* Draw a square
-	*
-	* @param integer $x
-	* @param integer $y
-	* @param integer $width
-	* @param array $colour
-	* @param float $opacity
-	* @param boolean $outline
-	* @see http://www.php.net/manual/en/function.imagefilledrectangle.php
-	* @return PHPImage
-	*/
-	public function square($x=0, $y=0, $width=100, $colour=array(0, 0, 0), $opacity=1, $outline=false){
+	 * Draw a square
+	 *
+	 * @param integer $x
+	 * @param integer $y
+	 * @param integer $width
+	 * @param array $colour
+	 * @param float $opacity
+	 * @param boolean $outline
+	 * @see http://www.php.net/manual/en/function.imagefilledrectangle.php
+	 * @return $this
+	 */
+	public function square($x=0, $y=0, $width=100, $colour=array(0, 0, 0), $opacity=1.0, $outline=false){
 		return $this->rectangle($x, $y, $width, $width, $colour, $opacity, $outline);
 	}
 
 	/**
-	* Draw an ellipse
-	*
-	* @param integer $x
-	* @param integer $y
-	* @param integer $width
-	* @param integer $height
-	* @param array $colour
-	* @param float $opacity
-	* @param boolean $outline
-	* @see http://www.php.net/manual/en/function.imagefilledellipse.php
-	* @return PHPImage
-	*/
-	public function ellipse($x=0, $y=0, $width=100, $height=50, $colour=array(0, 0, 0), $opacity=1, $outline=false){
+	 * Draw an ellipse
+	 *
+	 * @param integer $x
+	 * @param integer $y
+	 * @param integer $width
+	 * @param integer $height
+	 * @param array $colour
+	 * @param float $opacity
+	 * @param boolean $outline
+	 * @see http://www.php.net/manual/en/function.imagefilledellipse.php
+	 * @return $this
+	 */
+	public function ellipse($x=0, $y=0, $width=100, $height=50, $colour=array(0, 0, 0), $opacity=1.0, $outline=false){
 		if($outline === true){
 			imageellipse($this->img, $x, $y, $width, $height, imagecolorallocatealpha($this->img, $colour[0], $colour[1], $colour[2], (1 - $opacity) * 127));
 		}else{
@@ -406,32 +615,32 @@ class PHPImage {
 	}
 
 	/**
-	* Draw a circle
-	*
-	* @param integer $x
-	* @param integer $y
-	* @param integer $width
-	* @param array $colour
-	* @param float $opacity
-	* @param boolean $outline
-	* @see http://www.php.net/manual/en/function.imagefilledellipse.php
-	* @return PHPImage
-	*/
-	public function circle($x=0, $y=0, $width=100, $colour=array(0, 0, 0), $opacity=1, $outline=false){
+	 * Draw a circle
+	 *
+	 * @param integer $x
+	 * @param integer $y
+	 * @param integer $width
+	 * @param array $colour
+	 * @param float $opacity
+	 * @param boolean $outline
+	 * @see http://www.php.net/manual/en/function.imagefilledellipse.php
+	 * @return $this
+	 */
+	public function circle($x=0, $y=0, $width=100, $colour=array(0, 0, 0), $opacity=1.0, $outline=false){
 		return $this->ellipse($x, $y, $width, $width, $colour, $opacity, $outline);
 	}
 
 	/**
-	* Draw a polygon
-	*
-	* @param array $points
-	* @param array $colour
-	* @param float $opacity
-	* @param boolean $outline
-	* @see http://www.php.net/manual/en/function.imagefilledpolygon.php
-	* @return PHPImage
-	*/
-	public function polygon($points=array(), $colour=array(0, 0, 0), $opacity=1, $outline=false){
+	 * Draw a polygon
+	 *
+	 * @param array $points
+	 * @param array $colour
+	 * @param float $opacity
+	 * @param boolean $outline
+	 * @see http://www.php.net/manual/en/function.imagefilledpolygon.php
+	 * @return $this
+	 */
+	public function polygon($points=array(), $colour=array(0, 0, 0), $opacity=1.0, $outline=false){
 		if(count($points) > 0){
 			if($outline === true){
 				imagepolygon($this->img, $points, count($points) / 2, imagecolorallocatealpha($this->img, $colour[0], $colour[1], $colour[2], (1 - $opacity) * 127));
@@ -443,23 +652,23 @@ class PHPImage {
 	}
 
 	/**
-	* Draw an arc
-	*
-	* @param integer $x
-	* @param integer $y
-	* @param integer $width
-	* @param integer $height
-	* @param integer $start
-	* @param integer $end
-	* @param array $colour
-	* @param float $opacity
-	* @param boolean $outline
-	* @see http://www.php.net/manual/en/function.imagefilledarc.php
-	* @return PHPImage
-	*/
-	public function arc($x=0, $y=0, $width=100, $height=50, $start=0, $end=180, $colour=array(0, 0, 0), $opacity=1, $outline=false){
+	 * Draw an arc
+	 *
+	 * @param integer $x
+	 * @param integer $y
+	 * @param integer $width
+	 * @param integer $height
+	 * @param integer $start
+	 * @param integer $end
+	 * @param array $colour
+	 * @param float $opacity
+	 * @param boolean $outline
+	 * @see http://www.php.net/manual/en/function.imagefilledarc.php
+	 * @return $this
+	 */
+	public function arc($x=0, $y=0, $width=100, $height=50, $start=0, $end=180, $colour=array(0, 0, 0), $opacity=1.0, $outline=false){
 		if($outline === true){
-    		imagearc($this->img, $x, $y, $width, $height, $start, $end, imagecolorallocatealpha($this->img, $colour[0], $colour[1], $colour[2], (1 - $opacity) * 127));
+			imagearc($this->img, $x, $y, $width, $height, $start, $end, imagecolorallocatealpha($this->img, $colour[0], $colour[1], $colour[2], (1 - $opacity) * 127));
 		}else{
 			imagefilledarc($this->img, $x, $y, $width, $height, $start, $end, imagecolorallocatealpha($this->img, $colour[0], $colour[1], $colour[2], (1 - $opacity) * 127), IMG_ARC_PIE);
 		}
@@ -467,19 +676,19 @@ class PHPImage {
 	}
 
 	/**
-	* Draw an image from file
-	*
-	* Accepts x/y properties from CSS background-position (left, center, right, top, bottom, percentage and pixels)
-	*
-	* @param String $file
-	* @param String|integer $x
-	* @param String|integer $y
-	* @see http://www.php.net/manual/en/function.imagecopyresampled.php
-	* @see http://www.w3schools.com/cssref/pr_background-position.asp
-	* @return PHPImage
-	*/
-    public function draw($file, $x='50%', $y='50%'){
-    	if($info = $this->getImageInfo($file)){
+	 * Draw an image from file
+	 *
+	 * Accepts x/y properties from CSS background-position (left, center, right, top, bottom, percentage and pixels)
+	 *
+	 * @param String $file
+	 * @param String|integer $x
+	 * @param String|integer $y
+	 * @see http://www.php.net/manual/en/function.imagecopyresampled.php
+	 * @see http://www.w3schools.com/cssref/pr_background-position.asp
+	 * @return $this
+	 */
+	public function draw($file, $x='50%', $y='50%'){
+		if($info = $this->getImageInfo($file)){
 			$image = $info->resource;
 			$width = $info->width;
 			$height = $info->height;
@@ -494,24 +703,24 @@ class PHPImage {
 			switch($x){
 				case 'left':
 					$x = '0%';
-				break;
+					break;
 				case 'center':
 					$x = '50%';
-				break;
+					break;
 				case 'right':
 					$x = '100%';
-				break;
+					break;
 			}
 			switch($y){
 				case 'top':
 					$y = '0%';
-				break;
+					break;
 				case 'center':
 					$y = '50%';
-				break;
+					break;
 				case 'bottom':
 					$y = '100%';
-				break;
+					break;
 			}
 			// Work out offset
 			if(strpos($x, '%') > -1){
@@ -560,9 +769,15 @@ class PHPImage {
 	 * @param String $text
 	 * @param array $options
 	 * @see http://www.php.net/manual/en/function.imagettftext.php
-	 * @return PHPImage
+	 * @return $this
 	 */
 	public function text($text, $options=array()){
+		// Unset null values so they inherit defaults
+		foreach($options as $k => $v){
+			if($options[$k] === null){
+				unset($options[$k]);
+			}
+		}
 		$defaults = array(
 			'fontSize' => $this->fontSize,
 			'fontColor' => $this->textColor,
@@ -581,6 +796,9 @@ class PHPImage {
 			'debug' => false
 		);
 		extract(array_merge($defaults, $options), EXTR_OVERWRITE);
+		if($fontFile === null){
+			$this->handleError('No font file set!');
+		}
 		if(is_int($width) && $autoFit){
 			$fontSize = $this->fitToWidth($fontSize, $angle, $fontFile, $text, $width);
 		}
@@ -604,18 +822,18 @@ class PHPImage {
 			switch($alignHorizontal){
 				case 'center':
 					$offsetx += (($width - $actualWidth) / 2);
-				break;
+					break;
 				case 'right':
 					$offsetx += ($width - $actualWidth);
-				break;
+					break;
 			}
 			switch($alignVertical){
 				case 'center':
 					$offsety += (($height - $actualHeight) / 2);
-				break;
+					break;
 				case 'bottom':
 					$offsety += ($height - $actualHeight);
-				break;
+					break;
 			}
 		}
 		// Draw stroke
@@ -633,14 +851,15 @@ class PHPImage {
 	}
 
 	/**
-	* Reduce font size to fit to width
-	*
-	* @param integer $fontSize
-	* @param integer $angle
-	* @param String $fontFile
-	* @param String $text
-	* @param integer $width
-	*/
+	 * Reduce font size to fit to width
+	 *
+	 * @param integer $fontSize
+	 * @param integer $angle
+	 * @param String $fontFile
+	 * @param String $text
+	 * @param integer $width
+	 * @return integer
+	 */
 	private function fitToWidth($fontSize, $angle, $fontFile, $text, $width){
 		while($fontSize > 0){
 			$testbox = imagettfbbox($fontSize, $angle, $fontFile, $text);
@@ -655,35 +874,41 @@ class PHPImage {
 	}
 
 	/**
-	* Draw multi-line text box and auto wrap text
-	*
-	* @param String $text
-	* @param integer $width
-	* @param integer $fontSize
-	* @param integer $x
-	* @param integer $y
-	* @param integer $angle
-	* @param integer $strokeWidth
-	* @param float $opacity
-	* @param array $fontColor
-	* @param array $strokeColor
-	* @param String $fontFile
-	* @return PHPImage
-	*/
-	public function textBox($text, $width=100, $fontSize=12, $x=0, $y=0, $angle=null, $strokeWidth=null, $opacity=null, $fontColor=null, $strokeColor=null, $fontFile=null){
-		return $this->text($this->wrap($text, $width, $fontSize, $angle, $fontFile), $fontSize, $x, $y, $angle, $strokeWidth, $opacity, $fontColor, $strokeColor, $fontFile);
+	 * Draw multi-line text box and auto wrap text
+	 *
+	 * @param String $text
+	 * @param array $options
+	 * @return $this
+	 */
+	//public function textBox($text, $width=100, $fontSize=12, $x=0, $y=0, $angle=null, $strokeWidth=null, $opacity=null, $fontColor=null, $strokeColor=null, $fontFile=null){
+	public function textBox($text, $options=array()){
+		$defaults = array(
+			'fontSize' => $this->fontSize,
+			'fontColor' => $this->textColor,
+			'opacity' => $this->textOpacity,
+			'x' => 0,
+			'y' => 0,
+			'width' => 100,
+			'height' => 100,
+			'angle' => $this->textAngle,
+			'strokeWidth' => $this->strokeWidth,
+			'strokeColor' => $this->strokeColor,
+			'fontFile' => $this->fontFile
+		);
+		extract(array_merge($defaults, $options), EXTR_OVERWRITE);
+		return $this->text($this->wrap($text, $width, $fontSize, $angle, $fontFile), array('fontSize' => $fontSize, 'x' => $x, 'y' => $y, 'angle' => $angle, 'strokeWidth' => $strokeWidth, 'opacity' => $opacity, 'fontColor' => $fontColor, 'strokeColor' => $strokeColor, 'fontFile' => $fontFile));
 	}
 
 	/**
-	* Helper to wrap text
-	*
-	* @param String $text
-	* @param integer $width
-	* @param integer $fontSize
-	* @param integer $angle
-	* @param String $fontFile
-	* @return String
-	*/
+	 * Helper to wrap text
+	 *
+	 * @param String $text
+	 * @param integer $width
+	 * @param integer $fontSize
+	 * @param integer $angle
+	 * @param String $fontFile
+	 * @return String
+	 */
 	private function wrap($text, $width=100, $fontSize=12, $angle=0, $fontFile=null){
 		if($fontFile === null){
 			$fontFile = $this->fontFile;
@@ -703,123 +928,164 @@ class PHPImage {
 	}
 
 	/**
-	* Set's global folder mode if folder structure needs to be created
-	*
-	* @param String $mode
-	* @return PHPImage
-	*/
-	public function setFolderMode($mode=0755){
-		$this->folderMode = $mode;
-    	return $this;
+	 * Check quality is correct before save
+	 *
+	 * @return $this
+	 */
+	public function checkQuality(){
+		switch($this->type){
+			case IMAGETYPE_PNG:
+				if($this->type > 9){
+					$this->quality = 3;
+				}
+				break;
+		}
+		return $this;
 	}
 
 	/**
-	* Set's global text size
-	*
-	* @param integer $size
-	* @return PHPImage
-	*/
-    public function setFontSize($size=12){
-    	$this->fontSize = $size;
-    	return $this;
-    }
-
-    /**
-	* Set's global text vertical alignment
-	*
-	* @param String $align
-	* @return PHPImage
-	*/
-    public function setAlignVertical($align='top'){
-    	$this->alignVertical = $align;
-    	return $this;
-    }
-
-    /**
-	* Set's global text horizontal alignment
-	*
-	* @param String $align
-	* @return PHPImage
-	*/
-    public function setAlignHorizontal($align='left'){
-    	$this->alignHorizontal = $align;
-    	return $this;
-    }
+	 * Set's global folder mode if folder structure needs to be created
+	 *
+	 * @param integer $mode
+	 * @return $this
+	 */
+	public function setFolderMode($mode=0755){
+		$this->folderMode = $mode;
+		return $this;
+	}
 
 	/**
-	* Set's global text colour using RGB
-	*
-	* @param array $colour
-	* @return PHPImage
-	*/
-    public function setTextColor($colour=array(255, 255, 255)){
-    	$this->textColor = $colour;
-    	return $this;
-    }
-
-    /**
-    * Set's global text angle
-    *
-    * @param integer $angle
-    * @return PHPImage
-    */
-    public function setTextAngle($angle=0){
-    	$this->textAngle = $angle;
-    	return $this;
-    }
-
-    /**
-    * Set's global text stroke
-    *
-    * @param integer $strokeWidth
-    * @return PHPImage
-    */
-    public function setStrokeWidth($strokeWidth=0){
-    	$this->strokeWidth = $strokeWidth;
-    	return $this;
-    }
-
-    /**
-    * Set's global text opacity
-    *
-    * @param float $opacity
-    * @return PHPImage
-    */
-    public function setTextOpacity($opacity=1){
-    	$this->textOpacity = $opacity;
-    	return $this;
-    }
-
-    /**
-    * Set's global stroke colour
-    *
-    * @param array $colour
-    * @return PHPImage
-    */
-    public function setStrokeColor($colour=array(0, 0, 0)){
-    	$this->strokeColor = $colour;
-    	return $this;
-    }
+	 * Set's global text size
+	 *
+	 * @param integer $size
+	 * @return $this
+	 */
+	public function setFontSize($size=12){
+		$this->fontSize = $size;
+		return $this;
+	}
 
 	/**
-	* Set's global font file for text from .ttf font file (TrueType)
-	*
-	* @param string $fontFile
-	* @return PHPImage
-	*/
-    public function setFont($fontFile){
-    	$this->fontFile = $fontFile;
-    	return $this;
-    }
-	
+	 * Set's global text vertical alignment
+	 *
+	 * @param String $align
+	 * @return $this
+	 */
+	public function setAlignVertical($align='top'){
+		$this->alignVertical = $align;
+		return $this;
+	}
+
 	/**
-	* Set's global quality for PNG output
-	*
-	* @param string $quality
-	* @return PHPImage
-	*/
-    public function setQuality($quality){
-    	$this->quality = $quality;
-    	return $this;
-    }
+	 * Set's global text horizontal alignment
+	 *
+	 * @param String $align
+	 * @return $this
+	 */
+	public function setAlignHorizontal($align='left'){
+		$this->alignHorizontal = $align;
+		return $this;
+	}
+
+	/**
+	 * Set's global text colour using RGB
+	 *
+	 * @param array $colour
+	 * @return $this
+	 */
+	public function setTextColor($colour=array(255, 255, 255)){
+		$this->textColor = $colour;
+		return $this;
+	}
+
+	/**
+	 * Set's global text angle
+	 *
+	 * @param integer $angle
+	 * @return $this
+	 */
+	public function setTextAngle($angle=0){
+		$this->textAngle = $angle;
+		return $this;
+	}
+
+	/**
+	 * Set's global text stroke
+	 *
+	 * @param integer $strokeWidth
+	 * @return $this
+	 */
+	public function setStrokeWidth($strokeWidth=0){
+		$this->strokeWidth = $strokeWidth;
+		return $this;
+	}
+
+	/**
+	 * Set's global text opacity
+	 *
+	 * @param float $opacity
+	 * @return $this
+	 */
+	public function setTextOpacity($opacity=1.0){
+		$this->textOpacity = $opacity;
+		return $this;
+	}
+
+	/**
+	 * Set's global stroke colour
+	 *
+	 * @param array $colour
+	 * @return $this
+	 */
+	public function setStrokeColor($colour=array(0, 0, 0)){
+		$this->strokeColor = $colour;
+		return $this;
+	}
+
+	/**
+	 * Set's global font file for text from .ttf font file (TrueType)
+	 *
+	 * @param string $fontFile
+	 * @return $this
+	 */
+	public function setFont($fontFile){
+		$this->fontFile = $fontFile;
+		return $this;
+	}
+
+	/**
+	 * Set's global quality for PNG output
+	 *
+	 * @param string $quality
+	 * @return $this
+	 */
+	public function setQuality($quality){
+		$this->quality = $quality;
+		return $this;
+	}
+
+	/**
+	 * Set's global output type
+	 *
+	 * @param String $type
+	 * @param String $quality
+	 * @return $this
+	 */
+	public function setOutput($type, $quality = null){
+		switch(strtolower($type)){
+			case 'gif':
+				$this->type = IMAGETYPE_GIF;
+				break;
+			case 'jpg':
+				$this->type = IMAGETYPE_JPEG;
+				break;
+			case 'png':
+				$this->type = IMAGETYPE_PNG;
+				break;
+		}
+		if($quality !== null){
+			$this->setQuality($quality);
+		}
+		return $this;
+	}
 }
