@@ -5,12 +5,18 @@
  * and draw images on top of each other preserving transparency, writing text
  * with stroke and transparency and drawing shapes.
  *
- * @version 0.3
+ * @version 0.4
  * @author Blake Kus <blakekus@gmail.com>
  * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  * @copyright 2014 Blake Kus
  *
  * CHANGELOG:
+ * version 0.4 2014-02-27
+ * ADD: Image support for image cloning (Thanks @chainat)
+ * ADD: Support to use GD commands to manipulate image and then continue using library
+ * UPDATE: Private to Protected so library is extendable
+ * ADD: Rotate
+ *
  * version 0.3 2014-02-12
  * ADD: Examples
  * ADD: Initialise image on class instantiation
@@ -36,7 +42,14 @@ class PHPImage {
 	 *
 	 * @var resource
 	 */
-	private $img;
+	protected $img;
+
+	/**
+	 * Canvas resource
+	 *
+	 * @var resource
+	 */
+	protected $img_copy;
 
 	/**
 	 * PNG Compression level: from 0 (no compression) to 9.
@@ -44,98 +57,98 @@ class PHPImage {
 	 *
 	 * @var integer
 	 */
-	private $quality = 90;
+	protected $quality = 90;
 
 	/**
 	 * Global font file
 	 *
 	 * @var String
 	 */
-	private $fontFile;
+	protected $fontFile;
 
 	/**
 	 * Global font size
 	 *
 	 * @var integer
 	 */
-	private $fontSize = 12;
+	protected $fontSize = 12;
 
 	/**
 	 * Global text vertical alignment
 	 *
 	 * @var String
 	 */
-	private $alignVertical = 'top';
+	protected $alignVertical = 'top';
 
 	/**
 	 * Global text horizontal alignment
 	 *
 	 * @var String
 	 */
-	private $alignHorizontal = 'left';
+	protected $alignHorizontal = 'left';
 
 	/**
 	 * Global font colour
 	 *
 	 * @var array
 	 */
-	private $textColor = array(255, 255, 255);
+	protected $textColor = array(255, 255, 255);
 
 	/**
 	 * Global text opacity
 	 *
 	 * @var float
 	 */
-	private $textOpacity = 1;
+	protected $textOpacity = 1;
 
 	/**
 	 * Global text angle
 	 *
 	 * @var integer
 	 */
-	private $textAngle = 0;
+	protected $textAngle = 0;
 
 	/**
 	 * Global stroke width
 	 *
 	 * @var integer
 	 */
-	private $strokeWidth = 0;
+	protected $strokeWidth = 0;
 
 	/**
 	 * Global stroke colour
 	 *
 	 * @var array
 	 */
-	private $strokeColor = array(0, 0, 0);
+	protected $strokeColor = array(0, 0, 0);
 
 	/**
 	 * Canvas width
 	 *
 	 * @var integer
 	 */
-	private $width;
+	protected $width;
 
 	/**
 	 * Canvas height
 	 *
 	 * @var integer
 	 */
-	private $height;
+	protected $height;
 
 	/**
 	 * Image type
 	 *
 	 * @var integer
 	 */
-	private $type;
+	protected $type;
 
 	/**
 	 * Default folder mode to be used if folder structure needs to be created
 	 *
 	 * @var String
 	 */
-	private $folderMode = 0755;
+	protected $folderMode = 0755;
 
 	/**
 	 * Initialise the image with a file path, or dimensions, or pass no dimensions and
@@ -167,18 +180,64 @@ class PHPImage {
 	 * @param integer $height
 	 * @return $this
 	 */
-	private function initialiseCanvas($width, $height){
+	protected function initialiseCanvas($width, $height, $resource='img'){
 		$this->width = $width;
 		$this->height = $height;
-		$this->img = imagecreatetruecolor($this->width, $this->height);
+		unset($this->$resource);
+		$this->$resource = imagecreatetruecolor($this->width, $this->height);
 		// Set the flag to save full alpha channel information
-		imagesavealpha($this->img, true);
+		imagesavealpha($this->$resource, true);
 		// Turn off transparency blending (temporarily)
-		imagealphablending($this->img, false);
+		imagealphablending($this->$resource, false);
 		// Completely fill the background with transparent color
-		imagefilledrectangle($this->img, 0, 0, $this->width, $this->height, imagecolorallocatealpha($this->img, 0, 0, 0, 127));
+		imagefilledrectangle($this->$resource, 0, 0, $this->width, $this->height, imagecolorallocatealpha($this->$resource, 0, 0, 0, 127));
 		// Restore transparency blending
-		imagealphablending($this->img, true);
+		imagealphablending($this->$resource, true);
+		return $this;
+	}
+
+	/**
+	 * After we update the image run this function
+	 */
+	protected function afterUpdate(){
+		$this->shadowCopy();
+	}
+
+	/**
+	 * Store a copy of the image to be used for clone
+	 */
+	protected function shadowCopy(){
+		$this->initialiseCanvas($this->width, $this->height, 'img_copy');
+		imagecopy($this->img_copy, $this->img, 0, 0, 0, 0, $this->width, $this->height);
+	}
+
+	/**
+	 * Enable cloning of images in their current state
+	 *
+	 * $one = clone $image;
+	 */
+	public function __clone(){
+		$this->initialiseCanvas($this->width, $this->height);
+		imagecopy($this->img, $this->img_copy, 0, 0, 0, 0, $this->width, $this->height);
+	}
+
+	/**
+	 * Get image resource (used when using a raw gd command)
+	 *
+	 * @return resource
+	 */
+	public function getResource(){
+		return $this->img;
+	}
+
+	/**
+	 * Set image resource (after using a raw gd command)
+	 *
+	 * @param $resource
+	 * @return $this
+	 */
+	public function setResource($resource){
+		$this->img = $resource;
 		return $this;
 	}
 
@@ -204,7 +263,7 @@ class PHPImage {
 	 * @param boolean $returnResource
 	 * @return \stdClass
 	 */
-	private function getImageInfo($file, $returnResource=true){
+	protected function getImageInfo($file, $returnResource=true){
 		if (preg_match('#^https?://#i', $file)) {
 			$headers = get_headers($file, 1);
 			if (is_array($headers['Content-Type'])) {
@@ -283,9 +342,25 @@ class PHPImage {
 	 * Handle errors
 	 *
 	 * @param String $error
+	 *
+	 * @throws Exception
 	 */
-	private function handleError($error){
-		die($error);
+	protected function handleError($error){
+		throw new \Exception($error);
+	}
+
+	/**
+	 * Rotate image
+	 *
+	 * @param $angle
+	 * @param int $bgd_color
+	 * @param int $ignore_transparent
+	 * @return $this
+	 */
+	public function rotate($angle, $bgd_color=0, $ignore_transparent=0){
+		$this->img = imagerotate($this->img, $angle, 0);
+		$this->afterUpdate();
+		return $this;
 	}
 
 	/**
@@ -302,6 +377,7 @@ class PHPImage {
 		$this->initialiseCanvas($width, $height);
 		imagecopyresampled($this->img, $tmp, 0, 0, $x, $y, $width, $height, $width, $height);
 		imagedestroy($tmp);
+		$this->afterUpdate();
 		return $this;
 	}
 
@@ -439,6 +515,7 @@ class PHPImage {
 		$this->initialiseCanvas($canvasWidth, $canvasHeight);
 		imagecopyresampled($this->img, $tmp, 0, 0, $x, $y, $newwidth, $newheight, $width, $height);
 		imagedestroy($tmp);
+		$this->afterUpdate();
 		return $this;
 	}
 
@@ -551,6 +628,7 @@ class PHPImage {
 		}else{
 			imageline($this->img, $x1, $y1, $x2, $y2, imagecolorallocatealpha($this->img, $colour[0], $colour[1], $colour[2], (1 - $opacity) * 127));
 		}
+		$this->afterUpdate();
 		return $this;
 	}
 
@@ -573,6 +651,7 @@ class PHPImage {
 		}else{
 			imagefilledrectangle($this->img, $x, $y, $x + $width, $y + $height, imagecolorallocatealpha($this->img, $colour[0], $colour[1], $colour[2], (1 - $opacity) * 127));
 		}
+		$this->afterUpdate();
 		return $this;
 	}
 
@@ -611,6 +690,7 @@ class PHPImage {
 		}else{
 			imagefilledellipse($this->img, $x, $y, $width, $height, imagecolorallocatealpha($this->img, $colour[0], $colour[1], $colour[2], (1 - $opacity) * 127));
 		}
+		$this->afterUpdate();
 		return $this;
 	}
 
@@ -647,6 +727,7 @@ class PHPImage {
 			}else{
 				imagefilledpolygon($this->img, $points, count($points) / 2, imagecolorallocatealpha($this->img, $colour[0], $colour[1], $colour[2], (1 - $opacity) * 127));
 			}
+			$this->afterUpdate();
 		}
 		return $this;
 	}
@@ -672,6 +753,7 @@ class PHPImage {
 		}else{
 			imagefilledarc($this->img, $x, $y, $width, $height, $start, $end, imagecolorallocatealpha($this->img, $colour[0], $colour[1], $colour[2], (1 - $opacity) * 127), IMG_ARC_PIE);
 		}
+		$this->afterUpdate();
 		return $this;
 	}
 
@@ -745,6 +827,7 @@ class PHPImage {
 				$height
 			);
 			imagedestroy($image);
+			$this->afterUpdate();
 			return $this;
 		} else {
 			$this->handleError($file . ' is not a valid image!');
@@ -847,6 +930,7 @@ class PHPImage {
 		}
 		// Draw text
 		imagettftext($this->img, $fontSize, $angle, $x + $offsetx, $y + $offsety, imagecolorallocatealpha($this->img, $fontColor[0], $fontColor[1], $fontColor[2], (1 - $opacity) * 127), $fontFile, $text);
+		$this->afterUpdate();
 		return $this;
 	}
 
@@ -860,7 +944,7 @@ class PHPImage {
 	 * @param integer $width
 	 * @return integer
 	 */
-	private function fitToWidth($fontSize, $angle, $fontFile, $text, $width){
+	protected function fitToWidth($fontSize, $angle, $fontFile, $text, $width){
 		while($fontSize > 0){
 			$testbox = imagettfbbox($fontSize, $angle, $fontFile, $text);
 			$actualWidth = abs($testbox[6] - $testbox[4]);
@@ -909,7 +993,7 @@ class PHPImage {
 	 * @param String $fontFile
 	 * @return String
 	 */
-	private function wrap($text, $width=100, $fontSize=12, $angle=0, $fontFile=null){
+	protected function wrap($text, $width=100, $fontSize=12, $angle=0, $fontFile=null){
 		if($fontFile === null){
 			$fontFile = $this->fontFile;
 		}
