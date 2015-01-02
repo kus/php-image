@@ -35,4 +35,12 @@ $image->text('This is a big sentence', array(
 	'debug' => true
 ));
 $image->textBox('Lorem ipsum dolor sit amet, consectetur adipiscing elit.', array('width' => 100, 'fontSize' => 8, 'x' => 50, 'y' => 70));
+$image->rectangle(40, 140, 170, 160, array(0, 0, 0), 0.5);
+$image->textBox('Auto wrap and scale font size to multiline text box width and height bounds. Vestibulum venenatis risus scelerisque enim faucibus, ac pretium massa condimentum. Curabitur faucibus mi at convallis viverra. Integer nec finibus ligula, id hendrerit felis.', array(
+	'width' => 150,
+	'height' => 140,
+	'fontSize' => 16,
+	'x' => 50,
+	'y' => 150
+));
 $image->show();

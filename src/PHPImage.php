@@ -5,12 +5,15 @@
  * and draw images on top of each other preserving transparency, writing text
  * with stroke and transparency and drawing shapes.
  *
- * @version 0.4
+ * @version 0.5
  * @author Blake Kus <blakekus@gmail.com>
  * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
- * @copyright 2014 Blake Kus
+ * @copyright 2015 Blake Kus
  *
  * CHANGELOG:
+ * version 0.5 2015-01-02
+ * ADD: textBox auto scale font to width and height requested by @rufinus https://github.com/kus/php-image/issues/3
+ *
  * version 0.4 2014-02-27
  * ADD: Image support for image cloning (Thanks @chainat)
  * ADD: Support to use GD commands to manipulate image and then continue using library
@@ -958,13 +961,37 @@ class PHPImage {
 	}
 
 	/**
+	 * Reduce font size to fit to width and height
+	 *
+	 * @param integer $fontSize
+	 * @param integer $angle
+	 * @param String $fontFile
+	 * @param String $text
+	 * @param integer $width
+	 * @param integer $height
+	 * @return integer
+	 */
+	protected function fitToBounds($fontSize, $angle, $fontFile, $text, $width, $height){
+		while($fontSize > 0){
+			$wrapped = $this->wrap($text, $width, $fontSize, $angle, $fontFile);
+			$testbox = imagettfbbox($fontSize, $angle, $fontFile, $wrapped);
+			$actualHeight = abs($testbox[1] - $testbox[7]);
+			if($actualHeight <= $height){
+				return $fontSize;
+			}else{
+				$fontSize--;
+			}
+		}
+		return $fontSize;
+	}
+
+	/**
 	 * Draw multi-line text box and auto wrap text
 	 *
 	 * @param String $text
 	 * @param array $options
 	 * @return $this
 	 */
-	//public function textBox($text, $width=100, $fontSize=12, $x=0, $y=0, $angle=null, $strokeWidth=null, $opacity=null, $fontColor=null, $strokeColor=null, $fontFile=null){
 	public function textBox($text, $options=array()){
 		$defaults = array(
 			'fontSize' => $this->fontSize,
@@ -973,13 +1000,16 @@ class PHPImage {
 			'x' => 0,
 			'y' => 0,
 			'width' => 100,
-			'height' => 100,
+			'height' => null,
 			'angle' => $this->textAngle,
 			'strokeWidth' => $this->strokeWidth,
 			'strokeColor' => $this->strokeColor,
 			'fontFile' => $this->fontFile
 		);
 		extract(array_merge($defaults, $options), EXTR_OVERWRITE);
+		if ($height) {
+			$fontSize = $this->fitTobounds($fontSize, $angle, $fontFile, $text, $width, $height);
+		}
 		return $this->text($this->wrap($text, $width, $fontSize, $angle, $fontFile), array('fontSize' => $fontSize, 'x' => $x, 'y' => $y, 'angle' => $angle, 'strokeWidth' => $strokeWidth, 'opacity' => $opacity, 'fontColor' => $fontColor, 'strokeColor' => $strokeColor, 'fontFile' => $fontFile));
 	}
 

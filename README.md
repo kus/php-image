@@ -6,7 +6,7 @@ Wrapper for PHP's GD Library for easy image manipulation to resize, crop and dra
 
 ## Installation
 
-Place the PHP file on your server and include it in your script.
+Place the PHP file on your server and include it in your script or download via [composer](https://getcomposer.org/) `require: "kus/php-image": "dev-master"`.
 
 # Usage
 
@@ -26,7 +26,7 @@ Place the PHP file on your server and include it in your script.
 	$image->setStrokeColor(array(0, 0, 0));
 	$image->text('Hello World!', array('fontSize' => 12, 'x' => 50, 'y' => 50));
 	$image->text('This is a big sentence with width 200px', array(
-		'fontSize' => 60,
+		'fontSize' => 60, // Desired starting font size
 		'x' => 300,
 		'y' => 0,
 		'width' => 200,
@@ -36,7 +36,7 @@ Place the PHP file on your server and include it in your script.
 		'debug' => true
 	));
 	$image->text('This is a big sentence', array(
-		'fontSize' => 60,
+		'fontSize' => 60, // Desired starting font size
 		'x' => 300,
 		'y' => 200,
 		'width' => 200,
@@ -46,6 +46,14 @@ Place the PHP file on your server and include it in your script.
 		'debug' => true
 	));
 	$image->textBox('Lorem ipsum dolor sit amet, consectetur adipiscing elit.', array('width' => 100, 'fontSize' => 8, 'x' => 50, 'y' => 70));
+	$image->rectangle(40, 140, 170, 160, array(0, 0, 0), 0.5);
+	$image->textBox('Auto wrap and scale font size to multiline text box width and height bounds. Vestibulum venenatis risus scelerisque enim faucibus, ac pretium massa condimentum. Curabitur faucibus mi at convallis viverra. Integer nec finibus ligula, id hendrerit felis.', array(
+		'width' => 150,
+		'height' => 140,
+		'fontSize' => 16, // Desired starting font size
+		'x' => 50,
+		'y' => 150
+	));
 	$image->show();
 ```
 
@@ -75,7 +83,7 @@ Place the PHP file on your server and include it in your script.
 ![200x400](https://raw.github.com/kus/php-image/master/test/examples/thumb_200x400.jpg "200x400")
 ![100x100](https://raw.github.com/kus/php-image/master/test/examples/thumb_100x100.jpg "100x100")
 
-## Text box with auto wrap
+## Multiline text box with auto wrap and auto font scale to fit bounds
 
 ```ruby
 	$image = new PHPImage(400, 400);
@@ -84,9 +92,17 @@ Place the PHP file on your server and include it in your script.
 	$image->setTextColor(array(255, 255, 255));
 	$image->setStrokeWidth(1);
 	$image->setStrokeColor(array(0, 0, 0));
-	$image->textBox('Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit.', 100, 12, 0, 0);
+	$image->textBox('Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam molestie tortor quam, at congue nibh imperdiet dapibus.', array(
+		'width' => 100,
+		'height' => 100,
+		'fontSize' => 16, // Desired starting font size
+		'x' => 50,
+		'y' => 200
+	));
 	$image->show();
 ```
+
+![Multiline auto fit text](https://raw.github.com/kus/php-image/master/test/examples/text.jpg "Multiline auto fit text")
 
 ## Text box auto fit text (variable font size)
 
@@ -95,7 +111,7 @@ Place the PHP file on your server and include it in your script.
     $image->setFont('./font/arial.ttf');
     $image->setTextColor(array(255, 255, 255));
     $image->text('This is a big sentence', array(
-		'fontSize' => 60,
+		'fontSize' => 60, // Desired starting font size
 		'x' => 0,
 		'y' => 0,
 		'width' => 400,
@@ -105,7 +121,7 @@ Place the PHP file on your server and include it in your script.
 		'debug' => true
 	));
 	$image->text('BIG', array(
-		'fontSize' => 120,
+		'fontSize' => 120, // Desired starting font size
 		'x' => 0,
 		'y' => 200,
 		'width' => 400,
@@ -119,7 +135,7 @@ Place the PHP file on your server and include it in your script.
 
 ## Copyright
 
-Copyright (c) 2013 Blake Kus [blakek.us](http://blakek.us)
+Copyright (c) 2015 Blake Kus [blakek.us](http://blakek.us)
 
 This plugin is dual licenced under MIT and GPL Version 2 licences. 
 
