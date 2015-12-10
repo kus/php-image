@@ -267,7 +267,12 @@ class PHPImage {
 	 * @return \stdClass
 	 */
 	protected function getImageInfo($file, $returnResource=true){
-		if (preg_match('#^https?://#i', $file)) {
+		if($file instanceof PHPIMage) {
+			$img = $file->img;
+			$type = $file->type;
+			$width = $file->width;
+			$height = $file->height;
+		} elseif (preg_match('#^https?://#i', $file)) {
 			$headers = get_headers($file, 1);
 			if (is_array($headers['Content-Type'])) {
 				// Some servers return an array of content types, Facebook does this
