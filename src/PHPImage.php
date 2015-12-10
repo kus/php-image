@@ -224,6 +224,26 @@ class PHPImage {
 		imagecopy($this->img, $this->img_copy, 0, 0, 0, 0, $this->width, $this->height);
 	}
 
+
+	/**
+	 * Get image height
+	 *
+	 * @return int
+	 */
+	public function getHeight(){
+		return $this->height;
+	}
+
+	/**
+	 * Get image width
+	 *
+	 * @return int
+	 */
+	public function getWidth(){
+		return $this->width;
+	}
+	
+
 	/**
 	 * Get image resource (used when using a raw gd command)
 	 *
