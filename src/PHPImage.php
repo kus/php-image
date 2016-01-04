@@ -224,6 +224,26 @@ class PHPImage {
 		imagecopy($this->img, $this->img_copy, 0, 0, 0, 0, $this->width, $this->height);
 	}
 
+
+	/**
+	 * Get image height
+	 *
+	 * @return int
+	 */
+	public function getHeight(){
+		return $this->height;
+	}
+
+	/**
+	 * Get image width
+	 *
+	 * @return int
+	 */
+	public function getWidth(){
+		return $this->width;
+	}
+	
+
 	/**
 	 * Get image resource (used when using a raw gd command)
 	 *
@@ -267,7 +287,12 @@ class PHPImage {
 	 * @return \stdClass
 	 */
 	protected function getImageInfo($file, $returnResource=true){
-		if (preg_match('#^https?://#i', $file)) {
+		if($file instanceof PHPIMage) {
+			$img = $file->img;
+			$type = $file->type;
+			$width = $file->width;
+			$height = $file->height;
+		} elseif (preg_match('#^https?://#i', $file)) {
 			$headers = get_headers($file, 1);
 			if (is_array($headers['Content-Type'])) {
 				// Some servers return an array of content types, Facebook does this
