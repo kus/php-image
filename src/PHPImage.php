@@ -242,7 +242,7 @@ class PHPImage {
 	public function getWidth(){
 		return $this->width;
 	}
-	
+
 
 	/**
 	 * Get image resource (used when using a raw gd command)
@@ -875,7 +875,7 @@ class PHPImage {
 	 *
 	 * @param String $text
 	 * @param array $options
-	 * @see http://www.php.net/manual/en/function.imagettftext.php
+	 * @see http://www.php.net/manual/en/function.imagefttext.php
 	 * @return $this
 	 */
 	public function text($text, $options=array()){
@@ -948,12 +948,12 @@ class PHPImage {
 			$strokeColor = imagecolorallocatealpha($this->img, $strokeColor[0], $strokeColor[1], $strokeColor[2], (1 - $opacity) * 127);
 			for($sx = ($x-abs($strokeWidth)); $sx <= ($x+abs($strokeWidth)); $sx++){
 				for($sy = ($y-abs($strokeWidth)); $sy <= ($y+abs($strokeWidth)); $sy++){
-					imagettftext($this->img, $fontSize, $angle, $sx + $offsetx, $sy + $offsety, $strokeColor, $fontFile, $text);
+					imagefttext($this->img, $fontSize, $angle, $sx + $offsetx, $sy + $offsety, $strokeColor, $fontFile, $text);
 				}
 			}
 		}
 		// Draw text
-		imagettftext($this->img, $fontSize, $angle, $x + $offsetx, $y + $offsety, imagecolorallocatealpha($this->img, $fontColor[0], $fontColor[1], $fontColor[2], (1 - $opacity) * 127), $fontFile, $text);
+		imagefttext($this->img, $fontSize, $angle, $x + $offsetx, $y + $offsety, imagecolorallocatealpha($this->img, $fontColor[0], $fontColor[1], $fontColor[2], (1 - $opacity) * 127), $fontFile, $text);
 		$this->afterUpdate();
 		return $this;
 	}
