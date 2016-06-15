@@ -910,7 +910,7 @@ class PHPImage {
 			$fontSize = $this->fitToWidth($fontSize, $angle, $fontFile, $text, $width);
 		}
 		// Get Y offset as it 0 Y is the lower-left corner of the character
-		$testbox = imagettfbbox($fontSize, $angle, $fontFile, $text);
+		$testbox = imageftbbox($fontSize, $angle, $fontFile, $text);
 		$offsety = abs($testbox[7]);
 		$offsetx = 0;
 		$actualWidth = abs($testbox[6] - $testbox[4]);
@@ -970,7 +970,7 @@ class PHPImage {
 	 */
 	protected function fitToWidth($fontSize, $angle, $fontFile, $text, $width){
 		while($fontSize > 0){
-			$testbox = imagettfbbox($fontSize, $angle, $fontFile, $text);
+			$testbox = imageftbbox($fontSize, $angle, $fontFile, $text);
 			$actualWidth = abs($testbox[6] - $testbox[4]);
 			if($actualWidth <= $width){
 				return $fontSize;
@@ -995,7 +995,7 @@ class PHPImage {
 	protected function fitToBounds($fontSize, $angle, $fontFile, $text, $width, $height){
 		while($fontSize > 0){
 			$wrapped = $this->wrap($text, $width, $fontSize, $angle, $fontFile);
-			$testbox = imagettfbbox($fontSize, $angle, $fontFile, $wrapped);
+			$testbox = imageftbbox($fontSize, $angle, $fontFile, $wrapped);
 			$actualHeight = abs($testbox[1] - $testbox[7]);
 			if($actualHeight <= $height){
 				return $fontSize;
@@ -1052,7 +1052,7 @@ class PHPImage {
 		$arr = explode(' ', $text);
 		foreach ($arr as $word){
 			$teststring = $ret . ' ' . $word;
-			$testbox = imagettfbbox($fontSize, $angle, $fontFile, $teststring);
+			$testbox = imageftbbox($fontSize, $angle, $fontFile, $teststring);
 			if ($testbox[2] > $width){
 				$ret .= ($ret == "" ? "" : "\n") . $word;
 			} else {
