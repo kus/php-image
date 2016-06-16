@@ -1223,31 +1223,4 @@ class PHPImage {
 		}
 		return $this;
 	}
-
-	 /**
-	 * @param float $opacity Opacity to set from 0 (fully transparent) to 1 (no change)
-	 * @return resource Transparent image resource
-	 */
-	public function setImageOpacity( $opacity )
-	{
-		// Duplicate image and convert to TrueColor
-		$imageDst = imagecreatetruecolor( $this->width, $this->height );
-		imagealphablending( $imageDst, false );
-		imagefill( $imageDst, 0, 0, imagecolortransparent( $imageDst ) );
-		imagecopy( $imageDst, $this->image, 0, 0, 0, 0, $this->width, $this->height );
-
-		// Set new opacity to each pixel
-		for ( $x = 0; $x < $this->width; ++$x ) {
-			for ($y = 0; $y < $this->height; ++$y) {
-				$color = imagecolorat($imageDst, $x, $y);
-				$alpha = 127 - (($color >> 24) & 0xFF);
-				if ($alpha > 0) {
-					$color = ($color & 0xFFFFFF) | ((int)round(127 - $alpha * $opacity) << 24);
-					imagesetpixel($imageDst, $x, $y, $color);
-				}
-			}
-		}
-
-		$this->img = $imageDst;
-	}
 }
