@@ -273,6 +273,8 @@ class PHPImage {
 	 */
 	public function setResource($resource){
 		$this->img = $resource;
+		$this->width = imagesx($resource);
+		$this->height = imagesy($resource);
 		return $this;
 	}
 
