@@ -563,6 +563,7 @@ class PHPImage {
 	 * Shows the resulting image and cleans up.
 	 */
 	public function show(){
+		$this->checkQuality();
 		switch($this->type){
 			case IMAGETYPE_GIF:
 				header('Content-type: image/gif');
@@ -602,6 +603,7 @@ class PHPImage {
 			}
 		}
 		if (is_writable(dirname($path))) {
+			$this->checkQuality();
 			switch($this->type){
 				case IMAGETYPE_GIF:
 					imagegif($this->img, $path);
@@ -1112,9 +1114,26 @@ class PHPImage {
 	 */
 	public function checkQuality(){
 		switch($this->type){
+			case IMAGETYPE_JPEG:
+				if($this->quality > 100){
+					$this->quality = 100;
+				} else if ($this->quality < 0) {
+					$this->quality = 0;
+				} else if ($this->quality >= 0 && $this->quality <= 100) {
+
+				} else {
+					$this->quality = 75;
+				}
+				break;
 			case IMAGETYPE_PNG:
-				if($this->type > 9){
-					$this->quality = 3;
+				if($this->quality > 9){
+					$this->quality = 9;
+				} else if ($this->quality < 0) {
+					$this->quality = 0;
+				} else if ($this->quality >= 0 && $this->quality <= 9) {
+
+				} else {
+					$this->quality = 6;
 				}
 				break;
 		}
