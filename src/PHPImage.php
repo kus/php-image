@@ -5,12 +5,17 @@
  * and draw images on top of each other preserving transparency, writing text
  * with stroke and transparency and drawing shapes.
  *
- * @version 0.5
+ * @version 0.6
  * @author Blake Kus <blakekus@gmail.com>
  * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  * @copyright 2015 Blake Kus
  *
  * CHANGELOG:
+ * version 0.6 2017-10-26
+ * UPDATE: Support text alignment for multiline text
+ * ADD: Configurable line height
+ * ADD: OTF font support (Thanks @thorerik)
+ *
  * version 0.5 2015-01-02
  * ADD: textBox auto scale font to width and height requested by @rufinus https://github.com/kus/php-image/issues/3
  *
@@ -75,6 +80,13 @@ class PHPImage {
 	 * @var integer
 	 */
 	protected $fontSize = 12;
+
+	/**
+	 * Global line height
+	 *
+	 * @var float
+	 */
+	protected $lineHeight = 1.25;
 
 	/**
 	 * Global text vertical alignment
@@ -909,51 +921,60 @@ class PHPImage {
 		if(is_int($width) && $autoFit){
 			$fontSize = $this->fitToWidth($fontSize, $angle, $fontFile, $text, $width);
 		}
-		// Get Y offset as it 0 Y is the lower-left corner of the character
-		$testbox = imageftbbox($fontSize, $angle, $fontFile, $text);
-		$offsety = abs($testbox[7]);
-		$offsetx = 0;
-		$actualWidth = abs($testbox[6] - $testbox[4]);
-		$actualHeight = abs($testbox[1] - $testbox[7]);
-		// If text box align text
-		if(is_int($width) || is_int($height)){
-			if(!is_int($width)){
-				$width = $actualWidth;
-			}
-			if(!is_int($height)){
-				$height = $actualHeight;
-			}
-			if($debug){
-				$this->rectangle($x, $y, $width, $height, array(0, 255, 255), 0.5);
-			}
-			switch($alignHorizontal){
-				case 'center':
-					$offsetx += (($width - $actualWidth) / 2);
-					break;
-				case 'right':
-					$offsetx += ($width - $actualWidth);
-					break;
-			}
-			switch($alignVertical){
-				case 'center':
-					$offsety += (($height - $actualHeight) / 2);
-					break;
-				case 'bottom':
-					$offsety += ($height - $actualHeight);
-					break;
-			}
+		$lines = explode("\n", $text);
+		if($debug && is_int($width) && is_int($height)){
+			$this->rectangle($x, $y, $width, $height, array(0, 255, 255), 0.5);
 		}
-		// Draw stroke
-		if($strokeWidth > 0){
-			$strokeColor = imagecolorallocatealpha($this->img, $strokeColor[0], $strokeColor[1], $strokeColor[2], (1 - $opacity) * 127);
-			for($sx = ($x-abs($strokeWidth)); $sx <= ($x+abs($strokeWidth)); $sx++){
-				for($sy = ($y-abs($strokeWidth)); $sy <= ($y+abs($strokeWidth)); $sy++){
-					imagefttext($this->img, $fontSize, $angle, $sx + $offsetx, $sy + $offsety, $strokeColor, $fontFile, $text);
+		$fontHeight = $this->getFontHeight($fontSize, $angle, $fontFile, $lines);
+		$lineHeight = $fontHeight * $this->lineHeight;
+		foreach($lines as $index => $line){
+			// Get Y offset as it 0 Y is the lower-left corner of the character
+			$testbox = imageftbbox($fontSize, $angle, $fontFile, $line);
+			$offsety = abs($testbox[7]);
+			$offsetx = 0;
+			$actualWidth = abs($testbox[6] - $testbox[4]);
+			$actualHeight = $lineHeight;
+			$lineY = $y + ($lineHeight * $index);
+			// If text box align text
+			if(is_int($width) || is_int($height)){
+				if(!is_int($width)){
+					$width = $actualWidth;
+				}
+				if(!is_int($height)){
+					$height = $actualHeight;
+				}
+				switch($alignHorizontal){
+					case 'center':
+						$offsetx += (($width - $actualWidth) / 2);
+						break;
+					case 'right':
+						$offsetx += ($width - $actualWidth);
+						break;
+				}
+				switch($alignVertical){
+					case 'center':
+						$offsety += (($height - ($lineHeight * count($lines))) / 2);
+						break;
+					case 'bottom':
+						$offsety += ($height - ($lineHeight * count($lines)));
+						break;
+				}
+				if($debug){
+					$this->rectangle($x + $offsetx, $lineY + $offsety - $fontHeight, $actualWidth, $lineHeight, array(rand(150, 255), rand(150, 255), rand(150, 255)), 0.5);
 				}
 			}
+			// Draw stroke
+			if($strokeWidth > 0){
+				$strokeColor = imagecolorallocatealpha($this->img, $strokeColor[0], $strokeColor[1], $strokeColor[2], (1 - $opacity) * 127);
+				for($sx = ($x-abs($strokeWidth)); $sx <= ($x+abs($strokeWidth)); $sx++){
+					for($sy = ($lineY-abs($strokeWidth)); $sy <= ($lineY+abs($strokeWidth)); $sy++){
+						imagefttext($this->img, $fontSize, $angle, $sx + $offsetx, $sy + $offsety, $strokeColor, $fontFile, $line);
+					}
+				}
+			}
+			// Draw text
+			imagefttext($this->img, $fontSize, $angle, $x + $offsetx, $lineY + $offsety, imagecolorallocatealpha($this->img, $fontColor[0], $fontColor[1], $fontColor[2], (1 - $opacity) * 127), $fontFile, $line);
 		}
-		// Draw text
-		imagefttext($this->img, $fontSize, $angle, $x + $offsetx, $y + $offsety, imagecolorallocatealpha($this->img, $fontColor[0], $fontColor[1], $fontColor[2], (1 - $opacity) * 127), $fontFile, $text);
 		$this->afterUpdate();
 		return $this;
 	}
@@ -1007,6 +1028,27 @@ class PHPImage {
 	}
 
 	/**
+	 * Get font height
+	 *
+	 * @param integer $fontSize
+	 * @param integer $angle
+	 * @param String $fontFile
+	 * @param array lines
+	 * @return integer
+	 */
+	protected function getFontHeight($fontSize, $angle, $fontFile, $lines){
+		$height = 0;
+		foreach ($lines as $index => $line) {
+			$testbox = imageftbbox($fontSize, $angle, $fontFile, $line);
+			$actualHeight = abs($testbox[1] - $testbox[7]);
+			if ($actualHeight > $height) {
+				$height = $actualHeight;
+			}
+		}
+		return $height;
+	}
+
+	/**
 	 * Draw multi-line text box and auto wrap text
 	 *
 	 * @param String $text
@@ -1025,13 +1067,14 @@ class PHPImage {
 			'angle' => $this->textAngle,
 			'strokeWidth' => $this->strokeWidth,
 			'strokeColor' => $this->strokeColor,
-			'fontFile' => $this->fontFile
+			'fontFile' => $this->fontFile,
+			'debug' => false
 		);
 		extract(array_merge($defaults, $options), EXTR_OVERWRITE);
 		if ($height) {
 			$fontSize = $this->fitTobounds($fontSize, $angle, $fontFile, $text, $width, $height);
 		}
-		return $this->text($this->wrap($text, $width, $fontSize, $angle, $fontFile), array('fontSize' => $fontSize, 'x' => $x, 'y' => $y, 'angle' => $angle, 'strokeWidth' => $strokeWidth, 'opacity' => $opacity, 'fontColor' => $fontColor, 'strokeColor' => $strokeColor, 'fontFile' => $fontFile));
+		return $this->text($this->wrap($text, $width, $fontSize, $angle, $fontFile), array('fontSize' => $fontSize, 'x' => $x, 'y' => $y, 'width' => $width, 'height' => $height, 'angle' => $angle, 'strokeWidth' => $strokeWidth, 'opacity' => $opacity, 'fontColor' => $fontColor, 'strokeColor' => $strokeColor, 'fontFile' => $fontFile, 'debug' => $debug));
 	}
 
 	/**
@@ -1097,6 +1140,17 @@ class PHPImage {
 	 */
 	public function setFontSize($size=12){
 		$this->fontSize = $size;
+		return $this;
+	}
+
+	/**
+	 * Set's global line height
+	 *
+	 * @param float $lineHeight
+	 * @return $this
+	 */
+	public function setLineHeight($lineHeight=1.25){
+		$this->lineHeight = $lineHeight;
 		return $this;
 	}
 

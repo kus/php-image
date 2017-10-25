@@ -104,6 +104,8 @@ Place the PHP file on your server and include it in your script or download via 
 
 ![Multiline auto fit text](https://raw.github.com/kus/php-image/master/test/examples/text.jpg "Multiline auto fit text")
 
+![Multiline text alignment](https://raw.github.com/kus/php-image/master/test/examples/center.jpg "Multiline text alignment")
+
 ## Text box auto fit text (variable font size)
 
 ```ruby
