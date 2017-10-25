@@ -242,7 +242,7 @@ class PHPImage {
 	public function getWidth(){
 		return $this->width;
 	}
-	
+
 
 	/**
 	 * Get image resource (used when using a raw gd command)
@@ -875,7 +875,7 @@ class PHPImage {
 	 *
 	 * @param String $text
 	 * @param array $options
-	 * @see http://www.php.net/manual/en/function.imagettftext.php
+	 * @see http://www.php.net/manual/en/function.imagefttext.php
 	 * @return $this
 	 */
 	public function text($text, $options=array()){
@@ -910,7 +910,7 @@ class PHPImage {
 			$fontSize = $this->fitToWidth($fontSize, $angle, $fontFile, $text, $width);
 		}
 		// Get Y offset as it 0 Y is the lower-left corner of the character
-		$testbox = imagettfbbox($fontSize, $angle, $fontFile, $text);
+		$testbox = imageftbbox($fontSize, $angle, $fontFile, $text);
 		$offsety = abs($testbox[7]);
 		$offsetx = 0;
 		$actualWidth = abs($testbox[6] - $testbox[4]);
@@ -948,12 +948,12 @@ class PHPImage {
 			$strokeColor = imagecolorallocatealpha($this->img, $strokeColor[0], $strokeColor[1], $strokeColor[2], (1 - $opacity) * 127);
 			for($sx = ($x-abs($strokeWidth)); $sx <= ($x+abs($strokeWidth)); $sx++){
 				for($sy = ($y-abs($strokeWidth)); $sy <= ($y+abs($strokeWidth)); $sy++){
-					imagettftext($this->img, $fontSize, $angle, $sx + $offsetx, $sy + $offsety, $strokeColor, $fontFile, $text);
+					imagefttext($this->img, $fontSize, $angle, $sx + $offsetx, $sy + $offsety, $strokeColor, $fontFile, $text);
 				}
 			}
 		}
 		// Draw text
-		imagettftext($this->img, $fontSize, $angle, $x + $offsetx, $y + $offsety, imagecolorallocatealpha($this->img, $fontColor[0], $fontColor[1], $fontColor[2], (1 - $opacity) * 127), $fontFile, $text);
+		imagefttext($this->img, $fontSize, $angle, $x + $offsetx, $y + $offsety, imagecolorallocatealpha($this->img, $fontColor[0], $fontColor[1], $fontColor[2], (1 - $opacity) * 127), $fontFile, $text);
 		$this->afterUpdate();
 		return $this;
 	}
@@ -970,7 +970,7 @@ class PHPImage {
 	 */
 	protected function fitToWidth($fontSize, $angle, $fontFile, $text, $width){
 		while($fontSize > 0){
-			$testbox = imagettfbbox($fontSize, $angle, $fontFile, $text);
+			$testbox = imageftbbox($fontSize, $angle, $fontFile, $text);
 			$actualWidth = abs($testbox[6] - $testbox[4]);
 			if($actualWidth <= $width){
 				return $fontSize;
@@ -995,7 +995,7 @@ class PHPImage {
 	protected function fitToBounds($fontSize, $angle, $fontFile, $text, $width, $height){
 		while($fontSize > 0){
 			$wrapped = $this->wrap($text, $width, $fontSize, $angle, $fontFile);
-			$testbox = imagettfbbox($fontSize, $angle, $fontFile, $wrapped);
+			$testbox = imageftbbox($fontSize, $angle, $fontFile, $wrapped);
 			$actualHeight = abs($testbox[1] - $testbox[7]);
 			if($actualHeight <= $height){
 				return $fontSize;
@@ -1052,7 +1052,7 @@ class PHPImage {
 		$arr = explode(' ', $text);
 		foreach ($arr as $word){
 			$teststring = $ret . ' ' . $word;
-			$testbox = imagettfbbox($fontSize, $angle, $fontFile, $teststring);
+			$testbox = imageftbbox($fontSize, $angle, $fontFile, $teststring);
 			if ($testbox[2] > $width){
 				$ret .= ($ret == "" ? "" : "\n") . $word;
 			} else {
