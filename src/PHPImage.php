@@ -5,12 +5,15 @@
  * and draw images on top of each other preserving transparency, writing text
  * with stroke and transparency and drawing shapes.
  *
- * @version 0.6
+ * @version 0.6.1
  * @author Blake Kus <blakekus@gmail.com>
  * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  * @copyright 2015 Blake Kus
  *
  * CHANGELOG:
+ * version 0.6.1 2017-12-04
+ * FIXED: Stroke losing colour on multiline text (Thanks @choice2rejoice)
+ *
  * version 0.6 2017-10-26
  * UPDATE: Support text alignment for multiline text
  * ADD: Configurable line height
@@ -969,10 +972,10 @@ class PHPImage {
 			}
 			// Draw stroke
 			if($strokeWidth > 0){
-				$strokeColor = imagecolorallocatealpha($this->img, $strokeColor[0], $strokeColor[1], $strokeColor[2], (1 - $opacity) * 127);
+				$tmpStrokeColor = imagecolorallocatealpha($this->img, $strokeColor[0], $strokeColor[1], $strokeColor[2], (1 - $opacity) * 127);
 				for($sx = ($x-abs($strokeWidth)); $sx <= ($x+abs($strokeWidth)); $sx++){
 					for($sy = ($lineY-abs($strokeWidth)); $sy <= ($lineY+abs($strokeWidth)); $sy++){
-						imagefttext($this->img, $fontSize, $angle, $sx + $offsetx, $sy + $offsety, $strokeColor, $fontFile, $line);
+						imagefttext($this->img, $fontSize, $angle, $sx + $offsetx, $sy + $offsety, $tmpStrokeColor, $fontFile, $line);
 					}
 				}
 			}
