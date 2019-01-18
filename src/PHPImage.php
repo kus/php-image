@@ -937,7 +937,7 @@ class PHPImage {
 		foreach($lines as $index => $line){
 			// Get Y offset as it 0 Y is the lower-left corner of the character
 			$testbox = imageftbbox($fontSize, $angle, $fontFile, $line);
-			$offsety = abs($testbox[7]);
+			$offsety = $fontSize;
 			$offsetx = 0;
 			$actualWidth = abs($testbox[6] - $testbox[4]);
 			$actualHeight = $lineHeight;
