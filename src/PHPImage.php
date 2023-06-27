@@ -5,12 +5,16 @@
  * and draw images on top of each other preserving transparency, writing text
  * with stroke and transparency and drawing shapes.
  *
- * @version 0.6.1
+ * @version 0.6.2
  * @author Blake Kus <blakekus@gmail.com>
  * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  * @copyright 2015 Blake Kus
  *
  * CHANGELOG:
+ *
+ * version 0.6.2 2023-06-27
+ * ADD: Support for WebP format
+ *
  * version 0.6.1 2017-12-04
  * FIXED: Stroke losing colour on multiline text (Thanks @choice2rejoice)
  *
@@ -189,6 +193,11 @@ class PHPImage {
 			$image->draw($mixed);
 			return $image;
 		}
+        // Workaround for lower PHP Versions (WebP is not defined in PHP < 7.1)
+        // Only define if not already defined
+        if(!defined('IMAGETYPE_WEBP')){
+            define('IMAGETYPE_WEBP', 18);
+        }
 	}
 
 	/**
@@ -317,7 +326,7 @@ class PHPImage {
 			} else {
 				$contenttype = $headers['Content-Type'];
 			}
-			if (preg_match('#^image/(jpe?g|png|gif)$#i', $contenttype)) {
+			if (preg_match('#^image/(jpe?g|png|gif|webp)$#i', $contenttype)) {
 				switch(true){
 					case stripos($contenttype, 'jpeg') !== false:
 					case stripos($contenttype, 'jpg') !== false:
@@ -331,6 +340,10 @@ class PHPImage {
 					case stripos($contenttype, 'gif') !== false:
 						$img = imagecreatefromgif($file);
 						$type = IMAGETYPE_GIF;
+						break;
+					case stripos($contenttype, 'webp') !== false:
+						$img = imagecreatefromwebp($file);
+						$type = IMAGETYPE_WEBP;
 						break;
 					default:
 						return false;
@@ -613,13 +626,17 @@ class PHPImage {
 				case IMAGETYPE_GIF:
 					imagegif($this->img, $path);
 					break;
-				case IMAGETYPE_PNG:
-					imagepng($this->img, $path, $this->quality);
-					break;
-				default:
-					imagejpeg($this->img, $path, $this->quality);
-					break;
-			}
+                case IMAGETYPE_PNG:
+                    imagepng($this->img, $path, $this->quality);
+                    break;
+                case IMAGETYPE_WEBP:
+                    imagewebp($this->img, $path, $this->quality);
+                    break;
+                default:
+                case IMAGETYPE_JPEG:
+                    imagejpeg($this->img, $path, $this->quality);
+                    break;
+            }
 		} else {
 			$this->handleError(dirname($path) . ' is not writable!');
 		}
@@ -1294,6 +1311,9 @@ class PHPImage {
 				break;
 			case 'png':
 				$this->type = IMAGETYPE_PNG;
+				break;
+			case 'webp':
+				$this->type = IMAGETYPE_WEBP;
 				break;
 		}
 		if($quality !== null){

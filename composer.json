@@ -10,10 +10,15 @@
 			"name": "Blake Kus",
 			"email": "blakekus@gmail.com",
 			"homepage": "http://www.blakek.us"
+		},
+		{
+			"name": "Dennis Heinrich",
+			"email": "hey@dennis-heinri.ch",
+			"homepage": "https://dennis-heinri.ch"
 		}
 	],
     "require": {
-        "php": ">=5.3.0",
+        "php": ">=5.4.0",
         "ext-gd": "*"
     },
     "autoload": {
